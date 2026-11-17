@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { TooltipProvider } from '#lib/components/ui/tooltip';
+	import { ModeWatcher } from 'mode-watcher';
+	import { Toaster } from '#lib/components/ui/sonner';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -7,6 +10,8 @@
 	import { outcomeToLocation, type HydrateOutcome } from '#lib/guard';
 	import { onUnauthorized } from '#lib/api';
 	import { auth } from '#lib/stores/auth.svelte';
+	import { connectivity } from '#lib/stores/connectivity.svelte';
+	import '../app.css';
 
 	let { children } = $props();
 
@@ -26,8 +31,9 @@
 	}
 
 	onMount(() => {
-		// One listener for the whole app: the API client reports any protected
-		// 401 here, and we reset once so parallel failures cannot loop.
+		const detach = connectivity.attach();
+
+		// One listener for the whole app: a protected 401 resets auth once.
 		onUnauthorized(() => {
 			if (redirecting) return;
 			auth.reset();
@@ -36,26 +42,35 @@
 		});
 
 		void boot();
-		return () => onUnauthorized(null);
+
+		return () => {
+			onUnauthorized(null);
+			detach();
+		};
 	});
 
-	// Re-check on navigation so a session that died on another tab is caught.
+	// Re-hydrate after navigation when the session was dropped elsewhere.
 	$effect(() => {
 		void page.url.pathname;
-		if (outcome === 'ready' && !auth.me) {
-			void boot();
-		}
+		if (outcome === 'ready' && !auth.me) void boot();
 	});
+
+	const view = $derived(outcome ? outcomeToLocation(outcome, page.url.pathname) : {});
 </script>
 
-{#if outcome === null}
-	<div class="flex min-h-svh items-center justify-center">
-		<p class="text-sm text-muted-foreground">Memuat…</p>
-	</div>
-{:else if outcomeToLocation(outcome, page.url.pathname).render === 'offline'}
-	<OfflineScreen />
-{:else if outcomeToLocation(outcome, page.url.pathname).render === 'maintenance'}
-	<MaintenanceScreen />
-{:else}
-	{@render children()}
-{/if}
+<ModeWatcher />
+<TooltipProvider>
+	<Toaster richColors position="top-right" />
+
+	{#if outcome === null}
+		<div class="flex min-h-svh items-center justify-center">
+			<p class="text-sm text-muted-foreground">Memuat…</p>
+		</div>
+	{:else if view.render === 'offline'}
+		<OfflineScreen />
+	{:else if view.render === 'maintenance'}
+		<MaintenanceScreen />
+	{:else}
+		{@render children()}
+	{/if}
+</TooltipProvider>
