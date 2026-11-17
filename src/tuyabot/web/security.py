@@ -39,6 +39,9 @@ MAINTENANCE_BYPASS = {
     "/api/auth/me",
     "/api/auth/csrf",
     "/api/maintenance/status",
+    # The toggle must stay reachable while maintenance is on, otherwise the
+    # operator locks themselves out. The route still requires system.maintenance.
+    "/api/maintenance",
 }
 
 

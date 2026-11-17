@@ -130,6 +130,16 @@ def test_maintenance_blocks_non_auth_routes(client, login_as):
         maintenance_service.disable()
 
 
+def test_operator_can_leave_maintenance(client, login_as):
+    """The toggle must stay reachable while maintenance is on."""
+    login_as("superadmin")
+    maintenance_service.enable("uji")
+    response = client.post("/api/maintenance", json={"enabled": False})
+    assert response.status_code == 200
+    assert maintenance_service.is_on() is False
+    assert client.get("/api/settings").status_code == 200
+
+
 def test_maintenance_auto_off_expires(ready_db):
     maintenance_service.enable("uji", auto_off_minutes=0.001)
     import time

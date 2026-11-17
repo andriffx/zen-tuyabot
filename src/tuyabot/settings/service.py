@@ -86,6 +86,17 @@ def all_values(*, include_secrets: bool = False) -> dict[str, Any]:
     return output
 
 
+def prime_read_only(values: dict[str, Any]) -> None:
+    """Seed read-only settings in the cache (process facts, not operator config).
+
+    These are never persisted to app_settings: they change with the process, and
+    writing them would make a stale value look authoritative after a restore.
+    """
+    with _cache_lock:
+        _load_locked()
+        _cache.update(values)
+
+
 def subscribe(callback) -> None:
     """Register a callback receiving {key: new_value} after a successful patch."""
     _subscribers.append(callback)

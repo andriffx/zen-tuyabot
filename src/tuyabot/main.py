@@ -135,8 +135,11 @@ async def run() -> None:
 
     app_state.set("schema_version", schema_version)
     app_state.set("data_dir", str(settings.data_dir))
-    settings_service.patch(
-        {"system.schema_version": schema_version, "system.data_dir": str(settings.data_dir)}, actor={}
+    # `system.*` settings are read-only by design: they reflect process state,
+    # not operator configuration. Mirror them for the settings UI without
+    # writing through the validated (and therefore rejecting) patch path.
+    settings_service.prime_read_only(
+        {"system.schema_version": schema_version, "system.data_dir": str(settings.data_dir)}
     )
 
     if not app_state.is_setup_complete():
