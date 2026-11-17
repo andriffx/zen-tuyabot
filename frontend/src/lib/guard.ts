@@ -5,6 +5,14 @@ export type GuardDecision = { redirect?: string; render?: 'offline' | 'maintenan
 const PUBLIC_PATHS = new Set(['/login', '/setup']);
 
 /**
+ * Pages that stay reachable while maintenance is on.
+ *
+ * The maintenance toggle lives on /system, so blocking it would lock the
+ * operator out of turning maintenance off — the one escape hatch has to work.
+ */
+const MAINTENANCE_ESCAPE_PATHS = new Set(['/system']);
+
+/**
  * Decide what to do with the current location after hydration.
  *
  * Maintenance and offline render a screen instead of redirecting: the operator
@@ -22,7 +30,7 @@ export function outcomeToLocation(outcome: HydrateOutcome, pathname: string): Gu
 		case 'setup':
 			return pathname === '/setup' ? {} : { redirect: '/setup' };
 		case 'maintenance':
-			return isPublic ? {} : { render: 'maintenance' };
+			return isPublic || MAINTENANCE_ESCAPE_PATHS.has(pathname) ? {} : { render: 'maintenance' };
 		case 'offline':
 			return { render: 'offline' };
 	}

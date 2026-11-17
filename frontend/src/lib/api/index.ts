@@ -5,6 +5,7 @@ export {
 	del,
 	download,
 	get,
+	onMaintenance,
 	onReachability,
 	onUnauthorized,
 	patch,

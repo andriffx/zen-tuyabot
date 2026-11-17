@@ -21,6 +21,11 @@ describe('outcomeToLocation', () => {
 		expect(outcomeToLocation('offline', '/setup')).toEqual({ render: 'offline' });
 	});
 
+	it('keeps /system reachable during maintenance so the operator can turn it off', () => {
+		expect(outcomeToLocation('maintenance', '/system')).toEqual({});
+		expect(outcomeToLocation('maintenance', '/devices')).toEqual({ render: 'maintenance' });
+	});
+
 	it('lets a ready user through', () => {
 		expect(outcomeToLocation('ready', '/devices')).toEqual({});
 	});

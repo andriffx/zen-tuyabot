@@ -8,7 +8,7 @@
 	import MaintenanceScreen from '#lib/components/maintenance-screen.svelte';
 	import OfflineScreen from '#lib/components/offline-screen.svelte';
 	import { outcomeToLocation, type HydrateOutcome } from '#lib/guard';
-	import { onUnauthorized } from '#lib/api';
+	import { onMaintenance, onUnauthorized } from '#lib/api';
 	import { auth } from '#lib/stores/auth.svelte';
 	import { connectivity } from '#lib/stores/connectivity.svelte';
 	import '../app.css';
@@ -41,18 +41,35 @@
 			void goto('/login', { replaceState: true });
 		});
 
+		// A 503 arriving after the initial guard means maintenance was turned on
+		// while this tab was open: switch to the maintenance screen immediately
+		// instead of leaving a broken page with a toast.
+		onMaintenance(() => {
+			outcome = 'maintenance';
+		});
+
 		void boot();
 
 		return () => {
 			onUnauthorized(null);
+			onMaintenance(null);
 			detach();
 		};
 	});
 
-	// Re-hydrate after navigation when the session was dropped elsewhere.
+	// Re-hydrate on every navigation: the session may have ended elsewhere, and
+	// maintenance may have been turned off in another tab. This must not flip a
+	// blocked screen back into a loading state on a blocked navigation, so the
+	// outcome is only replaced when it actually changes.
+	let lastPath = $state(page.url.pathname);
 	$effect(() => {
-		void page.url.pathname;
-		if (outcome === 'ready' && !auth.me) void boot();
+		const path = page.url.pathname;
+		if (path === lastPath) return;
+		lastPath = path;
+
+		void auth.hydrate().then((next) => {
+			if (next !== outcome) outcome = next;
+		});
 	});
 
 	const view = $derived(outcome ? outcomeToLocation(outcome, page.url.pathname) : {});

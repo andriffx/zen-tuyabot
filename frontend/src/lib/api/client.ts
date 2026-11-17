@@ -17,6 +17,7 @@ const PUBLIC_401_PATHS = new Set(['/api/auth/login', '/api/auth/csrf', '/api/set
 
 let csrfToken: string | null = null;
 let unauthorizedHandler: (() => void) | null = null;
+let maintenanceHandler: (() => void) | null = null;
 let onlineHandler: ((online: boolean) => void) | null = null;
 
 export function setCsrfToken(token: string | null): void {
@@ -25,6 +26,11 @@ export function setCsrfToken(token: string | null): void {
 
 export function onUnauthorized(handler: (() => void) | null): void {
 	unauthorizedHandler = handler;
+}
+
+/** Fires when any protected request is answered with 503 maintenance. */
+export function onMaintenance(handler: (() => void) | null): void {
+	maintenanceHandler = handler;
 }
 
 /** Lets the connectivity store observe reachability without importing the client. */
@@ -82,6 +88,9 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
 		const apiError = await toApiError(response);
 		if (apiError.status === 401 && !init.silent401 && !PUBLIC_401_PATHS.has(path.split('?')[0])) {
 			unauthorizedHandler?.();
+		}
+		if (apiError.isMaintenance) {
+			maintenanceHandler?.();
 		}
 		if (apiError.isOffline) {
 			onlineHandler?.(false);
