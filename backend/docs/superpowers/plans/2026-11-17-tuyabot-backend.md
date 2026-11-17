@@ -59,7 +59,7 @@ Failure modes the spec implies that are easy to get wrong; each has a test in th
 - [ ] **Step 1: Initialize the repo and project files**
 
 ```bash
-cd "D:/Datas/MyData/Project Repo/tuyabot-be"
+cd "D:/Datas/MyData/Project Repo/zen-tuyabot/backend"
 git init
 ```
 

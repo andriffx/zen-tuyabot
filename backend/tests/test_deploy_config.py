@@ -60,13 +60,18 @@ def test_env_example_lists_only_bootstrap_keys():
     assert keys == {"DATA_DIR", "API_HOST", "API_PORT", "TZ"}
 
 
-def test_ci_runs_lint_and_tests():
-    text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "ruff check ." in text
-    assert "pytest -q" in text
-
-
 def test_readme_documents_backup_and_restore():
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "Backup, restore, pindah mesin" in text
     assert "secret.key" in text
+
+
+def test_ci_workflow_lives_at_repo_root():
+    """The monorepo's CI is at .github/ and runs inside backend/."""
+    root = ROOT.parent
+    workflow = root / ".github" / "workflows" / "backend.yml"
+    assert workflow.exists()
+    text = workflow.read_text(encoding="utf-8")
+    assert "ruff check ." in text
+    assert "pytest -q" in text
+    assert "working-directory: backend" in text

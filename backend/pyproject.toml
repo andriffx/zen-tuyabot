@@ -1,5 +1,5 @@
 [project]
-name = "tuyabot"
+name = "zen-tuyabot"
 version = "0.1.0"
 description = "Tuya smart-home controller: Telegram bots + REST API dashboard"
 requires-python = ">=3.11"

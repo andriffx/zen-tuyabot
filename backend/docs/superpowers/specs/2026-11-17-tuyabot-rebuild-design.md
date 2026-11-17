@@ -12,7 +12,7 @@ threshold watchdog, ganti token bot — berakhir di edit file dan restart servic
 
 Yang dibangun sekarang adalah **aplikasi baru dari nol**, bukan fork:
 
-- dua repo terpisah: `tuyabot-be` (Python) dan `tuyabot-fe` (SvelteKit + shadcn-svelte),
+- satu monorepo `zen-tuyabot`: `backend/` (Python) dan `frontend/` (SvelteKit + shadcn-svelte),
 - database baru, tanpa migrasi data atau kode lama,
 - `.env` seminimal mungkin; semua konfigurasi operasional diatur dari UI dan disimpan di DB,
 - fitur inti: login multi-user, **role dinamis dengan izin yang dicentang dari UI**,
@@ -65,7 +65,7 @@ Build dianggap gagal walau "jalan" kalau:
 - Tidak ada broker eksternal, Redis, atau MySQL.
 - Backend tetap satu proses: bot polling (bisa beberapa bot) + uvicorn + scheduler.
 - Frontend: SvelteKit + Svelte 5, Tailwind, shadcn-svelte, adapter-static.
-- Repo: backend di `tuyabot-be` (repo ini), frontend di `../tuyabot-fe`.
+- Repo: monorepo `zen-tuyabot`; backend di `backend/`, frontend di `frontend/`.
 
 ## 6. Pendekatan yang dipertimbangkan
 
@@ -112,7 +112,7 @@ Browser ──> nginx (tuyabot-fe, SPA) ──/api──> FastAPI ──> SQLite
 ### 7.1 Struktur backend
 
 ```
-tuyabot-be/
+backend/
   pyproject.toml, requirements.txt, requirements-dev.txt
   Dockerfile, entrypoint.sh, docker-compose.yml
   .env.example

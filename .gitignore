@@ -1,3 +1,4 @@
+# ── Backend (Python) ──
 .venv/
 __pycache__/
 *.py[cod]
@@ -13,3 +14,17 @@ logs/
 .env.dockhand
 .superpowers/
 referensi/
+
+# ── Frontend (Node) ──
+node_modules/
+.pnpm-store/
+/build/
+/.svelte-kit/
+/dist/
+.env.local
+
+# ── Umum ──
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

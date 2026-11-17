@@ -1,8 +1,14 @@
-name: ci
+name: backend
 
 on:
   push:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
   pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+defaults:
+  run:
+    working-directory: backend
 
 jobs:
   test:
@@ -13,6 +19,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - name: Lint
         run: ruff check .
