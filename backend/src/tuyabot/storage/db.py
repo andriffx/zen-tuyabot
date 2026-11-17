@@ -143,6 +143,30 @@ def close_all() -> None:
             _local.state = None
 
 
+def restore_in_place(source_path: str | Path) -> None:
+    """Replace the *contents* of the live database with `source_path`.
+
+    Restoring by swapping files (`os.replace`) only works when every thread's
+    connection is closed first. That is impossible here: sqlite3 objects refuse
+    `close()` from a thread other than the one that created them, so the
+    uvicorn worker pool, the scheduler and the Telegram bots would keep a handle
+    on the WAL file. On Windows the unlink then fails with WinError 32, and on
+    POSIX the rename would leave those threads reading the deleted inode.
+
+    The SQLite backup API writes the source into the live file in place, which
+    every already-open connection observes as ordinary new data. Any connection
+    with a stale read transaction must refresh; callers bump the generation
+    afterwards so each thread reopens on its next use.
+    """
+    source_path = str(source_path)
+    destination = _thread_connection()
+    source = sqlite3.connect(source_path, timeout=_busy_timeout_ms / 1000)
+    try:
+        source.backup(destination)
+    finally:
+        source.close()
+
+
 def ping() -> bool:
     try:
         with connection() as cursor:

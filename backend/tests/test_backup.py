@@ -103,6 +103,52 @@ def test_restore_creates_pre_restore_backup(populated):
     assert "pre_restore" in kinds
 
 
+def test_restore_succeeds_while_another_thread_holds_a_connection(populated):
+    """Restore must not depend on closing other threads' connections.
+
+    The production process has live connections in the uvicorn worker pool, the
+    scheduler and each Telegram bot. sqlite3 refuses `close()` from a foreign
+    thread, so a file swap (`os.replace`) left the WAL file locked and failed
+    with WinError 32 on Windows. Restoring in place through the SQLite backup API
+    is observably equivalent for every already-open connection.
+    """
+    import queue
+    import threading
+
+    result = backup_service.create()
+    source = Path(result["path"])
+
+    ready = queue.Queue()
+    release = threading.Event()
+    observed: dict[str, object] = {}
+
+    def hold_connection() -> None:
+        # A connection created and used entirely on this thread, exactly like a
+        # worker thread's thread-local connection.
+        with db.connection() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM devices")
+            ready.put(cur.fetchone()["n"])
+        release.wait(10)
+        with db.connection() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM devices")
+            observed["after"] = cur.fetchone()["n"]
+
+    devices_repo.delete(devices_repo.get_by_name("air")["id"])
+    assert db.ping() is True
+    assert len(devices_repo.list_all()) == 0
+
+    worker = threading.Thread(target=hold_connection)
+    worker.start()
+    assert ready.get(timeout=10) == 0  # the worker sees the delete
+
+    backup_service.restore(source)
+    release.set()
+    worker.join(timeout=10)
+
+    # The worker's connection was never closed and still reads the restored row.
+    assert observed["after"] == 1
+    assert len(devices_repo.list_all()) == 1
+
 def test_prune_removes_old_files(populated, monkeypatch):
     import os
     import time
