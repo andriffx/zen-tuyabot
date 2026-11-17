@@ -41,7 +41,9 @@ async def create_key(
         raise HTTPException(status_code=403, detail="Tidak boleh membuat API key dengan izin melebihi izin Anda")
 
     name = str(payload.get("name", "")).strip() or f"key-{role['slug']}"
-    key_id, raw = api_keys.create(name, role_id, created_by=principal.actor_id)
+    key_id, raw = api_keys.create(
+        name, role_id, created_by=principal.actor_id if principal.actor_kind == "web" else None
+    )
 
     audit.write(
         principal.actor_kind, principal.actor_id, principal.label, "api_keys.create",

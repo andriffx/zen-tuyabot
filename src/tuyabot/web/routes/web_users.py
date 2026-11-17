@@ -73,7 +73,7 @@ async def create_user(
             str(payload.get("username", "")),
             str(payload.get("password", "")),
             role_id,
-            created_by=principal.actor_id,
+            created_by=principal.actor_id if principal.actor_kind == "web" else None,
         )
     except web_users.UserError as exc:
         raise HTTPException(status_code=422, detail={"errors": [{"key": exc.code, "message": exc.message}]}) from exc

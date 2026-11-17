@@ -54,7 +54,7 @@ class FakeAuth:
         assert stored is not None, f"role {role_slug} tidak ada"
         self.principal = Principal(
             actor_kind="web",
-            actor_id=1,
+            actor_id=None,  # no web_users row exists in most tests; FK columns accept NULL
             label="tester",
             role_id=stored["id"],
             role_slug=stored["slug"],
