@@ -70,3 +70,32 @@ def test_cross_origin_mutation_rejected(bare_client):
         headers={"X-CSRF-Token": csrf, "Origin": "https://jahat.example"},
     )
     assert response.status_code == 403
+
+
+def test_origin_host_mismatch_with_proxy_port_is_rejected(ready_db):
+    """A reverse proxy that rewrites Host without the port would break every
+    mutation in production. The check must compare the full netloc."""
+    token = sessions.create(_make_user(), ttl_hours=5)
+    csrf = sessions.csrf_token(token)
+    client = TestClient(
+        create_app(),
+        cookies={"tuyabot_session": token, "csrf_token": csrf},
+        headers={"X-CSRF-Token": csrf, "Host": "tuya.example.com:8443",
+                 "Origin": "https://tuya.example.com:8443"},
+    )
+    # Different scheme is fine, the port must match; this documents that the
+    # proxy must forward Host (with port) unchanged.
+    response = client.patch("/api/settings", json={"values": {"ui.title": "X"}})
+    assert response.status_code == 200
+
+
+def test_origin_mismatch_is_rejected_with_port(ready_db):
+    token = sessions.create(_make_user(), ttl_hours=5)
+    csrf = sessions.csrf_token(token)
+    client = TestClient(
+        create_app(),
+        cookies={"tuyabot_session": token, "csrf_token": csrf},
+        headers={"X-CSRF-Token": csrf, "Host": "tuya.example.com:8443",
+                 "Origin": "https://evil.example"},
+    )
+    assert client.patch("/api/settings", json={"values": {"ui.title": "X"}}).status_code == 403

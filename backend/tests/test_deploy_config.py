@@ -57,7 +57,19 @@ def test_env_example_lists_only_bootstrap_keys():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             keys.add(line.split("=", 1)[0])
-    assert keys == {"DATA_DIR", "API_HOST", "API_PORT", "TZ"}
+    assert keys == {"DATA_DIR", "API_HOST", "API_PORT", "TZ", "FORWARDED_ALLOW_IPS"}
+
+
+def test_forwarded_allow_ips_defaults_to_loopback(monkeypatch):
+    """Trusting forwarded headers from arbitrary peers would let anyone spoof
+    their IP in the audit log and bypass the per-IP login limiter."""
+    from tuyabot import config
+
+    monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+    assert config.load().forwarded_allow_ips == "127.0.0.1"
+
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", "10.0.0.5,127.0.0.1")
+    assert config.load().forwarded_allow_ips == "10.0.0.5,127.0.0.1"
 
 
 def test_readme_documents_backup_and_restore():

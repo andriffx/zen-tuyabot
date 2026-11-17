@@ -149,7 +149,18 @@ async def run() -> None:
 
     app = create_app()
     server = uvicorn.Server(
-        uvicorn.Config(app, host=settings.api_host, port=settings.api_port, log_level="info")
+        uvicorn.Config(
+            app,
+            host=settings.api_host,
+            port=settings.api_port,
+            log_level="info",
+            # Behind an external reverse proxy the real client IP arrives in
+            # X-Forwarded-For. Without this, audit rows record the proxy's IP and
+            # the per-IP login limiter becomes one global bucket for everyone.
+            # Uvicorn only trusts the header from these peers.
+            forwarded_allow_ips=settings.forwarded_allow_ips,
+            proxy_headers=True,
+        )
     )
 
     scheduler = build_scheduler()
