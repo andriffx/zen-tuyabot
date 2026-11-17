@@ -31,7 +31,10 @@ def load_or_create_secret(data_dir: Path) -> bytes:
         return path.read_bytes()
     data_dir.mkdir(parents=True, exist_ok=True)
     secret = secrets.token_bytes(32)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    # O_BINARY is required on Windows: without it os.write translates \n to \r\n
+    # and the key read back would differ from the key generated.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(path, flags, 0o600)
     try:
         os.write(fd, secret)
     finally:
