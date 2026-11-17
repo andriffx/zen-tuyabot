@@ -25,7 +25,33 @@ PYTHONPATH=src python -m tuyabot.main
 | `npm run build` | Build statis ke `build/` |
 | `npm run check` | svelte-check (tipe) |
 | `npm run test -- --run` | Vitest |
-| `node e2e-smoke.mjs` | Smoke test browser (butuh backend + dev server hidup) |
+| `node e2e-smoke.mjs` | Smoke test browser: shell, guard, tema, login/logout |
+| `node e2e-devices.mjs` | Smoke test browser: buat/lihat/hapus device |
+
+## Smoke test browser (manual)
+
+Bukan bagian CI. Menjalankan aplikasi sungguhan di browser terhadap backend nyata.
+
+```bash
+npx playwright install chromium     # sekali per mesin
+npm run dev                          # terminal 1 (backend harus hidup di :8080)
+node e2e-smoke.mjs                   # terminal 2
+```
+
+Skenario yang diverifikasi:
+
+- **e2e-smoke.mjs** — instance belum setup → wizard; instance sudah setup → login.
+  Shell sidebar 12 menu, badge API & SSE tersambung, navigasi `/devices`, dialog device
+  dengan DPS terisi dari template, tema gelap, logout, password salah (error inline,
+  tidak berpindah halaman), reload anonim → `/login`, dan tidak ada error console.
+- **e2e-devices.mjs** — membuat device lewat dialog, kartu menampilkan pesan offline,
+  halaman detail menampilkan pemetaan DPS, lalu menghapusnya (idempoten).
+
+Keduanya mendeteksi **framework error overlay / halaman kosong** dan gagal bila muncul —
+HTTP 200 saja tidak dianggap bukti aplikasi berjalan. Exit code `1` bila ada cek gagal.
+
+Variabel lingkungan: `BASE_URL` (default `http://localhost:5173`), `SHOT_DIR` (folder
+screenshot), `SMOKE_USER`/`SMOKE_PASS` (kredensial).
 
 ## Deploy
 

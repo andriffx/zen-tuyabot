@@ -8,12 +8,15 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"scripts": {
+		"prepare": "svelte-kit sync",
+		"predev": "svelte-kit sync",
 		"dev": "vite dev",
+		"prebuild": "svelte-kit sync",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"pretest": "svelte-kit sync",
 		"test": "vitest",
 		"test:run": "vitest run"
 	},
