@@ -27,9 +27,14 @@ def fresh_db(tmp_path):
 @pytest.fixture()
 def ready_db(fresh_db):
     """A migrated database with seed rows."""
+    from tuyabot import bootstrap
     from tuyabot.storage import migrate
+    from tuyabot.storage.repos import app_state
 
     migrate.apply()
+    bootstrap._secret = b"test-secret-32-bytes-long-padding!"
+    # Most API tests are about endpoints, not the wizard: mark setup complete.
+    app_state.set("setup_complete", True)
     return fresh_db
 
 
@@ -63,13 +68,29 @@ class FakeAuth:
 
 
 @pytest.fixture()
-def client(ready_db):
-    """HTTP client whose cookie always resolves to the fake principal."""
+def csrf_value(ready_db):
+    """CSRF token bound to the fake session used by the test client."""
+    from tuyabot.access import sessions
+
+    return sessions.csrf_token("test-session")
+
+
+@pytest.fixture()
+def client(ready_db, csrf_value):
+    """HTTP client whose cookie always resolves to the fake principal.
+
+    It carries a valid CSRF pair by default so mutating routes can be tested;
+    tests that exercise CSRF behaviour build their own client.
+    """
     from fastapi.testclient import TestClient
 
     from tuyabot.web.app import create_app
 
-    return TestClient(create_app(), cookies={"tuyabot_session": "test-session"})
+    return TestClient(
+        create_app(),
+        cookies={"tuyabot_session": "test-session", "csrf_token": csrf_value},
+        headers={"X-CSRF-Token": csrf_value},
+    )
 
 
 @pytest.fixture()

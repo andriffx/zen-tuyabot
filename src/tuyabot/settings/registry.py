@@ -101,7 +101,6 @@ DEFS: tuple[SettingDef, ...] = (
     _s("ui.theme", "enum", "system", "ui", "Tema", choices=("system", "light", "dark")),
     _s("ui.power_chart_default_range", "enum", "24h", "ui", "Rentang grafik daya", choices=("1h", "24h", "7d")),
     # ── system (read-only) ──
-    _s("system.setup_complete", "bool", False, "system", "Setup selesai", read_only=True),
     _s("system.schema_version", "int", 0, "system", "Versi skema", read_only=True),
     _s("system.data_dir", "string", "", "system", "Direktori data", read_only=True),
 )
