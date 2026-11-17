@@ -27,6 +27,8 @@ PYTHONPATH=src python -m tuyabot.main
 | `npm run test -- --run` | Vitest |
 | `node e2e-smoke.mjs` | Smoke test browser: shell, guard, tema, login/logout |
 | `node e2e-devices.mjs` | Smoke test browser: buat/lihat/hapus device |
+| `node e2e-overview.mjs` | Smoke test browser: overview, tile, alert realtime |
+| `node e2e-management.mjs` | Smoke test browser: settings, roles, users, telegram users, bots |
 
 ## Smoke test browser (manual)
 
@@ -46,6 +48,15 @@ Skenario yang diverifikasi:
   tidak berpindah halaman), reload anonim → `/login`, dan tidak ada error console.
 - **e2e-devices.mjs** — membuat device lewat dialog, kartu menampilkan pesan offline,
   halaman detail menampilkan pemetaan DPS, lalu menghapusnya (idempoten).
+- **e2e-overview.mjs** — tile terisi dari API nyata, alert muncul saat SSE diputus,
+  dan memastikan halaman tidak kosong.
+- **e2e-management.mjs** — settings tersimpan, izin terlindungi terkunci, mengubah role
+  `operator` mencabut sesinya sementara editor tetap masuk, user Telegram terdaftar,
+  dan token bot tidak pernah dirender.
+
+Ketiganya memakai data yang sudah ada, jadi aman dijalankan berulang. Jangan mengubah
+izin role yang sedang dipakai untuk login — simpan perubahan itu mencabut sesi Anda
+sendiri (perilaku backend yang disengaja).
 
 Keduanya mendeteksi **framework error overlay / halaman kosong** dan gagal bila muncul —
 HTTP 200 saja tidak dianggap bukti aplikasi berjalan. Exit code `1` bila ada cek gagal.

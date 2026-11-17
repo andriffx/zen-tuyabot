@@ -119,3 +119,22 @@ def test_permission_catalog_is_grouped(client, login_as):
     body = client.get("/api/roles/permissions").json()
     assert len(body["all"]) == 23
     assert any(group["name"] == "Device" for group in body["categories"])
+
+
+def test_editing_the_actors_own_role_revokes_their_session(client, login_as):
+    """Saving role permissions revokes every session using that role, including
+    the editor's own — otherwise a removed permission would stay live until the
+    cookie expired. The UI must therefore handle a 401 on its next request."""
+    from tuyabot.access import sessions
+    from tuyabot.storage.repos import roles
+
+    login_as("superadmin")
+    role = roles.get_by_slug("superadmin")
+    user_id = web_users.create("self", "password-panjang", role["id"])
+    token = sessions.create(user_id, ttl_hours=1)
+
+    response = client.patch(f"/api/roles/{role['id']}", json={"permissions": role["permissions"]})
+    assert response.status_code == 200
+    assert set(response.json()["permissions"]) == set(role["permissions"])
+
+    assert sessions.resolve(token) is None
