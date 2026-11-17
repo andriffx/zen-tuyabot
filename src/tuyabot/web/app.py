@@ -8,6 +8,7 @@ from .routes import api_keys as api_keys_routes
 from .routes import auth as auth_routes
 from .routes import roles as roles_routes
 from .routes import settings as settings_routes
+from .routes import setup as setup_routes
 from .routes import web_users as web_users_routes
 from .security import (
     CsrfMiddleware,
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
         """Liveness probe: no auth, no database, no device access."""
         return {"status": "ok"}
 
+    app.include_router(setup_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(settings_routes.router)
     app.include_router(roles_routes.router)

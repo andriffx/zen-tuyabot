@@ -88,20 +88,32 @@ def connection(immediate: bool = False) -> Iterator[sqlite3.Cursor]:
 
     `immediate=True` uses BEGIN IMMEDIATE for read-then-write sequences so two
     writers cannot interleave and lose an update.
+
+    Reentrant: a nested `connection()` on the same thread joins the outer
+    transaction instead of issuing a second BEGIN (which SQLite rejects). Only
+    the outermost block commits or rolls back.
     """
     conn = _thread_connection()
+    depth = getattr(_local, "depth", 0)
     cursor = conn.cursor()
-    cursor.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+
+    if depth == 0:
+        cursor.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
+    _local.depth = depth + 1
+
     try:
         yield cursor
-        conn.commit()
+        if depth == 0:
+            conn.commit()
     except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
+        if depth == 0:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
         raise
     finally:
+        _local.depth = depth
         cursor.close()
 
 
