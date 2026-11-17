@@ -4,7 +4,7 @@ import os
 import stat
 
 from tuyabot import bootstrap, config
-from tuyabot.storage import db
+from tuyabot.storage import db, migrate
 
 
 def test_defaults_without_any_env(monkeypatch):
@@ -20,7 +20,7 @@ def test_init_creates_everything_needed(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "fresh"))
     settings = config.load()
 
-    assert bootstrap.init(settings) == 1
+    assert bootstrap.init(settings) == migrate.available()[-1][0]
 
     assert db.ping() is True
     assert (settings.data_dir / "secret.key").exists()
@@ -32,7 +32,7 @@ def test_secret_file_is_private_and_stable(tmp_path):
     settings = config.Settings(data_dir=tmp_path, api_host="127.0.0.1", api_port=8080, tz="UTC")
     first = bootstrap.init(settings)
     secret = bootstrap.secret()
-    assert first == 1
+    assert first == migrate.available()[-1][0]
     assert len(secret) == 32
 
     if os.name == "posix":
