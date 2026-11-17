@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from .routes import settings as settings_routes
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -18,6 +20,8 @@ def create_app() -> FastAPI:
     async def healthz() -> dict[str, str]:
         """Liveness probe: no auth, no database, no device access."""
         return {"status": "ok"}
+
+    app.include_router(settings_routes.router)
 
     return app
 
