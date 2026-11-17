@@ -168,6 +168,7 @@ src/
       bots/+page.svelte                # daftar/ganti/uji token bot
       backup/+page.svelte
       system/+page.svelte               # kesehatan, maintenance, audit
+      +page.svelte                      # overview dashboard
   lib/
     api/client.ts                      # fetch wrapper, error normalisasi, 401/409
     stores/{auth,devices,settings,sse,permissions}.svelte.ts

@@ -94,7 +94,7 @@ User Telegram yang tidak terdaftar hanya mendapat `/start` dan `/help`. Pendafta
 
 ## Endpoint API
 
-Dokumentasi lengkap ada di `docs/superpowers/specs/2026-11-17-tuyabot-rebuild-design.md` §8.15. Ringkasnya:
+Dokumentasi lengkap ada di `../docs/superpowers/specs/2026-11-17-tuyabot-rebuild-design.md` §8.15. Ringkasnya:
 
 | Grup | Path |
 |------|------|

@@ -44,8 +44,8 @@ same-origin di development.
 
 ## Dokumentasi
 
-- Spesifikasi lengkap: [`backend/docs/superpowers/specs/`](backend/docs/superpowers/specs/)
-- Rencana implementasi backend: [`backend/docs/superpowers/plans/`](backend/docs/superpowers/plans/)
+- Spesifikasi lengkap: [`docs/superpowers/specs/`](docs/superpowers/specs/)
+- Rencana implementasi backend: [`docs/superpowers/plans/`](docs/superpowers/plans/)
 - Detail API, backup/restore, troubleshooting: [`backend/README.md`](backend/README.md)
 
 ## CI
