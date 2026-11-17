@@ -28,3 +28,21 @@ node_modules/
 Thumbs.db
 *.log
 npm-debug.log*
+
+# Screenshot lokal (untuk laporan manual, bukan bagian repo)
+Screenshot *.png
+Screenshot*.png
+*.tmp
+
+# Screenshot yang ditaruh di docs/ tetap terabaikan, apa pun namanya
+docs/*.png
+docs/*.jpg
+docs/*.jpeg
+docs/*.webp
+docs/*.gif
+
+# Artefak screenshot dari suite e2e (hanya ditulis bila SHOT_DIR disetel)
+frontend/*.png
+frontend/*.jpg
+frontend/*.jpeg
+frontend/*.webp

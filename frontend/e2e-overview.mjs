@@ -1,7 +1,16 @@
 import { chromium } from 'playwright';
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? '.';
+const out = process.env.SHOT_DIR ?? null;
+const USER = process.env.SMOKE_USER ?? 'root';
+const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
+
+// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
+// run leaves the working tree clean (they are for manual reports, not the repo).
+async function snap(name, fullPage = true) {
+	if (!out) return;
+	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 950 } });
@@ -22,16 +31,16 @@ async function ensureSession() {
 	await page.goto(base + '/', { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1200);
 	if (new URL(page.url()).pathname === '/setup') {
-		await page.fill('#username', 'root');
-		await page.fill('#password', 'password-panjang');
-		await page.fill('#confirm', 'password-panjang');
+		await page.fill('#username', USER);
+		await page.fill('#password', PASS);
+		await page.fill('#confirm', PASS);
 		await page.click('button[type=submit]');
 		await page.waitForTimeout(2000);
 		await page.click('text=Lewati, buka dashboard');
 		await page.waitForTimeout(2000);
 	} else if (new URL(page.url()).pathname === '/login') {
-		await page.fill('#username', 'root');
-		await page.fill('#password', 'password-panjang');
+		await page.fill('#username', USER);
+		await page.fill('#password', PASS);
 		await page.click('button[type=submit]');
 		await page.waitForTimeout(2000);
 	}
@@ -53,7 +62,7 @@ check('power chart empty state', body.includes('belum ada data daya'));
 check('activity empty state', body.includes('belum ada aktivitas'));
 check('no partial failure banner', !body.includes('sebagian data gagal dimuat'));
 check('no leftover placeholder text', !body.includes('akan dibangun pada milestone'));
-await page.screenshot({ path: `${out}/20-overview.png`, fullPage: true });
+await snap(`20-overview`);
 
 // ── A degraded state must surface as an alert ─────────────────────────────
 // Simulate a dropped SSE by aborting the stream, then confirm the alert text.
@@ -63,7 +72,7 @@ await page.waitForTimeout(3000);
 const afterDrop = await page.locator('body').innerText();
 check('realtime outage raises an alert', afterDrop.includes('Realtime terputus'));
 check('realtime outage does not blank the page', afterDrop.includes('Overview'));
-await page.screenshot({ path: `${out}/21-overview-sse-down.png`, fullPage: true });
+await snap(`21-overview-sse-down`);
 
 check('no page errors', errors.length === 0, errors.join(' | '));
 

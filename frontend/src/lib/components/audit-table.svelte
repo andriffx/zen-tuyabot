@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { Badge } from '#lib/components/ui/badge';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
+
 	import { Button } from '#lib/components/ui/button';
 	import { Input } from '#lib/components/ui/input';
 	import { Skeleton } from '#lib/components/ui/skeleton';
@@ -66,28 +74,48 @@
 	<div class="flex flex-wrap items-end gap-2">
 		<label class="flex flex-col gap-1 text-xs">
 			<span class="text-muted-foreground">Hasil</span>
-			<select
-				class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-				bind:value={result}
-				onchange={applyFilters}
+			<Select
+				type="single"
+				value={result || 'all'}
+				onValueChange={(next) => {
+					result = next === 'all' ? '' : (next ?? '');
+					applyFilters();
+				}}
 			>
-				{#each resultOptions as option (option)}
-					<option value={option}>{option || 'semua'}</option>
-				{/each}
-			</select>
+				<SelectTrigger size="sm" class="min-w-28">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{#each resultOptions as option (option)}
+						<SelectItem value={option || 'all'} label={option || 'semua'}>
+							{option || 'semua'}
+						</SelectItem>
+					{/each}
+				</SelectContent>
+			</Select>
 		</label>
 
 		<label class="flex flex-col gap-1 text-xs">
 			<span class="text-muted-foreground">Aktor</span>
-			<select
-				class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-				bind:value={actorKind}
-				onchange={applyFilters}
+			<Select
+				type="single"
+				value={actorKind || 'all'}
+				onValueChange={(next) => {
+					actorKind = next === 'all' ? '' : (next ?? '');
+					applyFilters();
+				}}
 			>
-				{#each actorOptions as option (option)}
-					<option value={option}>{option || 'semua'}</option>
-				{/each}
-			</select>
+				<SelectTrigger size="sm" class="min-w-32">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{#each actorOptions as option (option)}
+						<SelectItem value={option || 'all'} label={option || 'semua'}>
+							{option || 'semua'}
+						</SelectItem>
+					{/each}
+				</SelectContent>
+			</Select>
 		</label>
 
 		<label class="flex flex-col gap-1 text-xs">

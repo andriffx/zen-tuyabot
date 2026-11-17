@@ -14,9 +14,16 @@ import { chromium } from 'playwright';
  */
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? '.';
+const out = process.env.SHOT_DIR ?? null;
 const USER = process.env.SMOKE_USER ?? 'root';
 const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
+
+// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
+// run leaves the working tree clean (they are for manual reports, not the repo).
+async function snap(name, fullPage = true) {
+	if (!out) return;
+	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
+}
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -36,7 +43,7 @@ function check(name, condition, extra = '') {
 }
 
 async function shot(name) {
-	await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
+	await snap(`${name}`);
 }
 
 /**

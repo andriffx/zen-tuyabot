@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { Badge } from '#lib/components/ui/badge';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
+
 	import { Button } from '#lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card';
 	import {
@@ -191,15 +199,22 @@
 							<TableCell>{user.label ?? '-'}</TableCell>
 							<TableCell>
 								{#if canManage}
-									<select
-										class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-										value={user.role_id}
-										onchange={(event) => changeRole(user, Number(event.currentTarget.value))}
+									<Select
+										type="single"
+										value={String(user.role_id)}
+										onValueChange={(next) => {
+											if (next) void changeRole(user, Number(next));
+										}}
 									>
-										{#each roles as role (role.id)}
-											<option value={role.id}>{role.name}</option>
-										{/each}
-									</select>
+										<SelectTrigger size="sm" class="min-w-32">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{#each roles as role (role.id)}
+												<SelectItem value={String(role.id)} label={role.name}>{role.name}</SelectItem>
+											{/each}
+										</SelectContent>
+									</Select>
 								{:else}
 									{user.role_name}
 								{/if}
@@ -254,16 +269,20 @@
 				</div>
 				<div class="space-y-1">
 					<Label for="tg-role">Role</Label>
-					<select
-						id="tg-role"
-						class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-						value={roleId ?? ''}
-						onchange={(event) => (roleId = Number(event.currentTarget.value))}
+					<Select
+						type="single"
+						value={roleId === null ? '' : String(roleId)}
+						onValueChange={(next) => (roleId = next ? Number(next) : null)}
 					>
-						{#each roles.filter((role) => allowedRoleIds.includes(role.id)) as role (role.id)}
-							<option value={role.id}>{role.name}</option>
-						{/each}
-					</select>
+						<SelectTrigger id="tg-role" class="w-full">
+							<SelectValue placeholder="Pilih role" />
+						</SelectTrigger>
+						<SelectContent>
+							{#each roles.filter((role) => allowedRoleIds.includes(role.id)) as role (role.id)}
+								<SelectItem value={String(role.id)} label={role.name}>{role.name}</SelectItem>
+							{/each}
+						</SelectContent>
+					</Select>
 					{#if fieldErrors.role_id}
 						<p class="text-xs text-destructive">{fieldErrors.role_id}</p>
 					{/if}

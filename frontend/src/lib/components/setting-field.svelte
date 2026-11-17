@@ -1,5 +1,13 @@
 <script lang="ts">
 	import { Badge } from '#lib/components/ui/badge';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
+
 	import { Input } from '#lib/components/ui/input';
 	import { Label } from '#lib/components/ui/label';
 	import { Switch } from '#lib/components/ui/switch';
@@ -98,18 +106,25 @@
 			{disabled}
 		/>
 	{:else if field.type === 'enum'}
-		<select
-			id="setting-{field.key}"
-			class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-			value={String(field.value ?? '')}
-			onchange={(event) =>
-				onChange(field.key, (event.currentTarget as HTMLSelectElement).value)}
-			{disabled}
+		<Select
+			type="single"
+			value={String(localValue ?? '')}
+			disabled={disabled}
+			onValueChange={(next) => {
+				if (!next) return;
+				localValue = next;
+				onChange(field.key, next);
+			}}
 		>
-			{#each field.choices as choice (choice)}
-				<option value={choice}>{choice}</option>
-			{/each}
-		</select>
+			<SelectTrigger id="setting-{field.key}" class="w-full">
+				<SelectValue placeholder="Pilih nilai" />
+			</SelectTrigger>
+			<SelectContent>
+				{#each field.choices as choice (choice)}
+					<SelectItem value={choice} label={choice}>{choice}</SelectItem>
+				{/each}
+			</SelectContent>
+		</Select>
 	{:else if field.type === 'json'}
 		<Textarea
 			id="setting-{field.key}"

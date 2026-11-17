@@ -10,6 +10,13 @@
 	} from '#lib/components/ui/dialog';
 	import { Input } from '#lib/components/ui/input';
 	import { Label } from '#lib/components/ui/label';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
 	import { usersApi } from '#lib/api';
 	import { ApiError } from '#lib/api/errors';
 	import type { Role, WebUser } from '#lib/api/types';
@@ -117,16 +124,20 @@
 
 				<div class="space-y-1">
 					<Label for="user-role">Role</Label>
-					<select
-						id="user-role"
-						class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-						value={roleId ?? ''}
-						onchange={(event) => (roleId = Number(event.currentTarget.value))}
+					<Select
+						type="single"
+						value={roleId === null ? '' : String(roleId)}
+						onValueChange={(next) => (roleId = next ? Number(next) : null)}
 					>
-						{#each roles as role (role.id)}
-							<option value={role.id}>{role.name}</option>
-						{/each}
-					</select>
+						<SelectTrigger id="user-role" class="w-full">
+							<SelectValue placeholder="Pilih role" />
+						</SelectTrigger>
+						<SelectContent>
+							{#each roles as role (role.id)}
+								<SelectItem value={String(role.id)} label={role.name}>{role.name}</SelectItem>
+							{/each}
+						</SelectContent>
+					</Select>
 					{#if fieldErrors.role_id}
 						<p class="text-xs text-destructive">{fieldErrors.role_id}</p>
 					{/if}

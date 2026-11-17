@@ -12,6 +12,14 @@
 	import { Input } from '#lib/components/ui/input';
 	import { Label } from '#lib/components/ui/label';
 	import DpsEditor from '#lib/components/dps-editor.svelte';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
+
 	import { devicesApi } from '#lib/api';
 	import { ApiError } from '#lib/api/errors';
 	import type { Device, DeviceTemplates, Role, ScanCandidate } from '#lib/api/types';
@@ -194,16 +202,24 @@
 
 				<div class="space-y-1 sm:col-span-2">
 					<Label for="dev-type">Tipe</Label>
-					<select
-						id="dev-type"
-						class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-						bind:value={type}
-						onchange={() => (dps = { ...(templates?.templates[type as 'plug'] ?? {}) })}
+					<Select
+						type="single"
+						value={type}
+						onValueChange={(next) => {
+							if (!next) return;
+							type = next;
+							dps = { ...(templates?.templates[next as 'plug'] ?? {}) };
+						}}
 					>
-						{#each templates?.types ?? ['plug', 'bulb', 'switch', 'sensor'] as option (option)}
-							<option value={option}>{option}</option>
-						{/each}
-					</select>
+						<SelectTrigger id="dev-type" class="w-full">
+							<SelectValue placeholder="Pilih tipe" />
+						</SelectTrigger>
+						<SelectContent>
+							{#each templates?.types ?? ['plug', 'bulb', 'switch', 'sensor'] as option (option)}
+								<SelectItem value={option} label={option}>{option}</SelectItem>
+							{/each}
+						</SelectContent>
+					</Select>
 				</div>
 
 				<div class="sm:col-span-2">

@@ -1,7 +1,16 @@
 import { chromium } from 'playwright';
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? '.';
+const out = process.env.SHOT_DIR ?? null;
+const USER = process.env.SMOKE_USER ?? 'root';
+const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
+
+// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
+// run leaves the working tree clean (they are for manual reports, not the repo).
+async function snap(name, fullPage = true) {
+	if (!out) return;
+	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
+}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
@@ -27,15 +36,15 @@ async function signIn() {
 	await page.goto(base + '/', { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1200);
 	if (new URL(page.url()).pathname === '/setup') {
-		await page.fill('#username', 'root');
-		await page.fill('#password', 'password-panjang');
-		await page.fill('#confirm', 'password-panjang');
+		await page.fill('#username', USER);
+		await page.fill('#password', PASS);
+		await page.fill('#confirm', PASS);
 		await page.click('button[type=submit]');
 		await page.waitForTimeout(2000);
 		await page.click('text=Lewati, buka dashboard');
 	} else if (new URL(page.url()).pathname === '/login') {
-		await page.fill('#username', 'root');
-		await page.fill('#password', 'password-panjang');
+		await page.fill('#username', USER);
+		await page.fill('#password', PASS);
 		await page.click('button[type=submit]');
 	}
 	await page.waitForTimeout(2500);
@@ -75,16 +84,20 @@ for (const [path, heading, emptyText] of [
 	check(`${path}: heading`, text.includes(heading));
 	check(`${path}: renders rows or an empty state`, text.includes(emptyText) || text.includes('baris'));
 	check(`${path}: pagination controls present`, text.includes('Berikutnya') || text.includes(emptyText));
-	await page.screenshot({ path: `${out}/40-${path.split('/').pop()}.png`, fullPage: true });
+	await snap(`40-${path.split('/').pop()}`);
 }
 
 // Device filter reloads the table without an error.
 await page.goto(base + '/logs/activities', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
-const filter = page.locator('select').first();
-const options = await filter.locator('option').count();
-check('activities: device filter has an "all" option', options >= 1, `${options} options`);
-await filter.selectOption({ index: 0 });
+// shadcn Select: open the trigger, then click an item (no native <option>).
+const filter = page.locator('[data-slot="select-trigger"]').first();
+await filter.click();
+const content = page.locator('[data-slot="select-content"]').first();
+await content.waitFor({ state: 'visible', timeout: 5000 });
+const options = await content.locator('[data-slot="select-item"]').allTextContents();
+check('activities: device filter lists "Semua"', options.some((o) => o.trim() === 'Semua'), JSON.stringify(options));
+await content.locator('[data-slot="select-item"]').first().click();
 await page.waitForTimeout(1200);
 check('activities: filter change does not error', !(await page.locator('body').innerText()).includes('Coba lagi'));
 
@@ -97,7 +110,7 @@ check('system: database section present', text.toLowerCase().includes('statistik
 check('system: schema version shown', text.includes('Versi skema'));
 check('system: maintenance toggle present', text.toLowerCase().includes('maintenance'));
 check('system: audit section present', text.toLowerCase().includes('audit log'));
-await page.screenshot({ path: `${out}/41-system.png`, fullPage: true });
+await snap(`41-system`);
 
 // Audit table loads at least the setup/login entries.
 check('system: audit has entries or empty state', /access\.denied|auth\.login|setup\.complete|Tidak ada entri audit/.test(text));
@@ -112,7 +125,7 @@ if ((await detailButton.count()) > 0) {
 	await page.keyboard.press('Escape');
 	await page.waitForTimeout(400);
 	check('system: Escape closes the drawer', !(await page.locator('body').innerText()).includes('Detail audit'));
-	await page.screenshot({ path: `${out}/42-audit.png`, fullPage: true });
+	await snap(`42-audit`);
 } else {
 	check('system: audit drawer (skipped, no rows)', true);
 }
@@ -200,7 +213,7 @@ if ((await maintSwitch.count()) > 0) {
 		'system: devices reachable again after maintenance off',
 		(await page.locator('body').innerText()).includes('Devices')
 	);
-	await page.screenshot({ path: `${out}/43-after-maintenance.png`, fullPage: true });
+	await snap(`43-after-maintenance`);
 } else {
 	check('system: maintenance toggle (skipped)', true);
 }

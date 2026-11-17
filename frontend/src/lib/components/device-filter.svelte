@@ -2,6 +2,14 @@
 	import { devicesApi } from '#lib/api';
 	import type { Device } from '#lib/api/types';
 	import { onMount } from 'svelte';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		SelectValue
+	} from '#lib/components/ui/select';
+
 
 	let {
 		value = $bindable<number | null>(null),
@@ -19,21 +27,22 @@
 	});
 
 	function change(next: string) {
-		value = next === '' ? null : Number(next);
+		value = next === 'all' ? null : Number(next);
 		onChange?.(value);
 	}
 </script>
 
 <label class="flex items-center gap-2 text-sm">
 	<span class="text-muted-foreground">Perangkat</span>
-	<select
-		class="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-		value={value ?? ''}
-		onchange={(event) => change(event.currentTarget.value)}
-	>
-		<option value="">Semua</option>
-		{#each devices as device (device.id)}
-			<option value={device.id}>{device.label}</option>
-		{/each}
-	</select>
+	<Select type="single" value={value === null ? 'all' : String(value)} onValueChange={(next) => change(next ?? 'all')}>
+		<SelectTrigger size="sm" class="min-w-40">
+			<SelectValue placeholder="Semua" />
+		</SelectTrigger>
+		<SelectContent>
+			<SelectItem value="all" label="Semua">Semua</SelectItem>
+			{#each devices as device (device.id)}
+				<SelectItem value={String(device.id)} label={device.label}>{device.label}</SelectItem>
+			{/each}
+		</SelectContent>
+	</Select>
 </label>
