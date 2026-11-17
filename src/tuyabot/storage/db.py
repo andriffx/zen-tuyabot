@@ -117,6 +117,21 @@ def connection(immediate: bool = False) -> Iterator[sqlite3.Cursor]:
         cursor.close()
 
 
+@contextmanager
+def raw_connection() -> Iterator[sqlite3.Cursor]:
+    """Cursor with no transaction wrapper.
+
+    Required by statements SQLite refuses inside a transaction, notably
+    `VACUUM INTO` for consistent online backups.
+    """
+    conn = _thread_connection()
+    cursor = conn.cursor()
+    try:
+        yield cursor
+    finally:
+        cursor.close()
+
+
 def close_all() -> None:
     """Close this thread's connection. Full shutdown calls it per thread via executor."""
     state = getattr(_local, "state", None)

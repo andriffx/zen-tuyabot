@@ -6,13 +6,16 @@ from fastapi import FastAPI
 
 from .routes import api_keys as api_keys_routes
 from .routes import auth as auth_routes
+from .routes import backup as backup_routes
 from .routes import bots as bots_routes
 from .routes import devices as devices_routes
 from .routes import logs as logs_routes
 from .routes import roles as roles_routes
 from .routes import settings as settings_routes
 from .routes import setup as setup_routes
+from .routes import stats as stats_routes
 from .routes import stream as stream_routes
+from .routes import system as system_routes
 from .routes import telegram_users as telegram_users_routes
 from .routes import web_users as web_users_routes
 from .security import (
@@ -54,6 +57,9 @@ def create_app() -> FastAPI:
     app.include_router(telegram_users_routes.router)
     app.include_router(bots_routes.router)
     app.include_router(logs_routes.router)
+    app.include_router(backup_routes.router)
+    app.include_router(system_routes.router)
+    app.include_router(stats_routes.router)
     app.include_router(stream_routes.router)
     app.include_router(api_keys_routes.router)
 
