@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from ...access import passwords
@@ -66,8 +66,10 @@ async def download_backup(
 async def restore_backup(
     request: Request,
     file: UploadFile = File(...),
-    password: str = "",
-    confirm: str = "",
+    # Form(...) is required: a bare `password: str` default makes FastAPI read a
+    # query parameter, so a correct multipart upload would be rejected.
+    password: str = Form(default=""),
+    confirm: str = Form(default=""),
     principal: Principal = Depends(require("system.restore")),
 ) -> dict[str, Any]:
     """Restore replaces the whole database: re-auth and a typed confirmation are required."""

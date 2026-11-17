@@ -29,6 +29,8 @@ PYTHONPATH=src python -m tuyabot.main
 | `node e2e-devices.mjs` | Smoke test browser: buat/lihat/hapus device |
 | `node e2e-overview.mjs` | Smoke test browser: overview, tile, alert realtime |
 | `node e2e-management.mjs` | Smoke test browser: settings, roles, users, telegram users, bots |
+| `node e2e-monitoring.mjs` | Smoke test browser: log, audit, maintenance round-trip |
+| `node e2e-backup.mjs` | Smoke test browser: buat/unduh backup dan restore nyata |
 
 ## Smoke test browser (manual)
 
@@ -54,7 +56,10 @@ Skenario yang diverifikasi:
   `operator` mencabut sesinya sementara editor tetap masuk, user Telegram terdaftar,
   dan token bot tidak pernah dirender.
 
-Ketiganya memakai data yang sudah ada, jadi aman dijalankan berulang. Jangan mengubah
+**e2e-backup.mjs** membuat backup, mengunduhnya, lalu memulihkannya lewat dialog
+(password + `RESTORE`). Restore mencabut semua sesi, jadi skripnya login ulang di akhir.
+
+Semua skrip memakai data yang sudah ada, jadi aman dijalankan berulang. Jangan mengubah
 izin role yang sedang dipakai untuk login — simpan perubahan itu mencabut sesi Anda
 sendiri (perilaku backend yang disengaja).
 
@@ -63,6 +68,16 @@ HTTP 200 saja tidak dianggap bukti aplikasi berjalan. Exit code `1` bila ada cek
 
 Variabel lingkungan: `BASE_URL` (default `http://localhost:5173`), `SHOT_DIR` (folder
 screenshot), `SMOKE_USER`/`SMOKE_PASS` (kredensial).
+
+### Integration test (opt-in)
+
+```bash
+VITE_TEST_API=1 npm run test -- --run src/lib/api/integration.test.ts
+```
+
+Butuh dev server yang mem-proxy `/api`. Node tidak punya cookie jar, jadi test ini hanya
+membuktikan jalur tanpa sesi (endpoint publik, 401, kredensial salah, penolakan tulis).
+Alur bersesi penuh diuji oleh skrip smoke browser di atas.
 
 ## Deploy
 

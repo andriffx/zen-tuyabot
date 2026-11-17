@@ -176,3 +176,53 @@ def test_backup_download_requires_restore_permission(client, login_as, populated
     login_as("operator")  # no backup.view at all
     result = backup_service.create()
     assert client.get(f"/api/backup/{result['id']}/download").status_code == 403
+
+
+def test_restore_endpoint_reads_multipart_fields(ready_db):
+    """The restore route takes a multipart body, not query parameters.
+
+    A bare `password: str = ""` makes FastAPI look for a query string, so a
+    correct multipart upload was rejected with "Password salah" (or reported
+    "hanya dari akun web"). This test logs in for real and pins the wire format
+    the dashboard sends.
+    """
+    from pathlib import Path
+
+    from fastapi.testclient import TestClient
+
+    from tuyabot.storage.repos import roles, web_users
+    from tuyabot.web.app import create_app
+
+    role = roles.get_by_slug("superadmin")
+    web_users.create("root", "password-panjang", role["id"])
+    result = backup_service.create()
+    payload = Path(result["path"]).read_bytes()
+
+    client = TestClient(create_app())
+    csrf = client.get("/api/auth/csrf").json()["csrf_token"]
+    login = client.post(
+        "/api/auth/login",
+        json={"username": "root", "password": "password-panjang"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert login.status_code == 200
+    headers = {"X-CSRF-Token": login.json()["csrf_token"]}
+
+    # Wrong password -> the multipart password field is read and rejected.
+    wrong = client.post(
+        "/api/backup/restore",
+        files={"file": ("backup.db", payload, "application/octet-stream")},
+        data={"password": "salah-sekali", "confirm": "RESTORE"},
+        headers=headers,
+    )
+    assert wrong.status_code == 403
+    assert wrong.json()["detail"] == "Password salah"
+
+    # Wrong confirmation -> 422, proving `confirm` also comes from the form.
+    missing = client.post(
+        "/api/backup/restore",
+        files={"file": ("backup.db", payload, "application/octet-stream")},
+        data={"password": "password-panjang", "confirm": "bukan"},
+        headers=headers,
+    )
+    assert missing.status_code == 422
