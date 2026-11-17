@@ -72,13 +72,13 @@ def apply() -> int:
             )
 
         by_version = {version: (name, path) for version, name, path in files}
-        for version, (name, checksum) in done.items():
+        for version, (entry_name, checksum) in done.items():
             entry = by_version.get(version)
             if entry is None:
                 raise MigrationError(f"migrasi {version} tercatat di database tetapi filenya hilang")
             if _checksum(entry[1]) != checksum:
                 raise MigrationError(
-                    f"checksum migrasi {version} ({entry[0]}) berubah; "
+                    f"checksum migrasi {version} ({entry_name}) berubah; "
                     "file migrasi yang sudah diterapkan tidak boleh diedit"
                 )
 
