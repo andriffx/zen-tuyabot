@@ -28,6 +28,24 @@ CONFLICT_HINT = (
     "Pastikan hanya satu instance yang memakai token ini."
 )
 
+REDACTED = "[token]"
+
+
+def _sanitize(message: str, token: str | None) -> str:
+    """Strip the token from error text before it is stored or logged.
+
+    python-telegram-bot's InvalidToken message quotes the token verbatim, and
+    `last_error` is returned by GET /api/bots — so without this the one secret
+    the API promises never to return would be readable from the dashboard.
+    """
+    if token:
+        message = message.replace(token, REDACTED)
+        # Also redact the bare numeric part, which some errors print alone.
+        prefix = token.split(":", 1)[0]
+        if len(prefix) >= 6:
+            message = message.replace(prefix, REDACTED)
+    return message
+
 
 class BotManager:
     def __init__(self) -> None:
@@ -80,7 +98,7 @@ class BotManager:
                 logger.info("[TELEGRAM] bot %s aktif (%s)", bot_id, username or "unknown")
                 return "running"
             except Exception as exc:  # invalid token, network, conflict
-                message = str(exc)
+                message = _sanitize(str(exc), token)
                 if "Conflict" in message or "terminated by other getUpdates" in message:
                     message = CONFLICT_HINT
                 bots_repo.record_error(bot_id, message)

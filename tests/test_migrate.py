@@ -1,6 +1,7 @@
 """Migration runner: fresh apply, checksum guard, newer-DB refusal."""
 
 import shutil
+import sqlite3
 
 import pytest
 
@@ -59,3 +60,44 @@ def test_missing_migration_file_fails(fresh_db, tmp_path, monkeypatch):
     monkeypatch.setattr(migrate, "MIGRATIONS_DIR", empty)
     with pytest.raises(migrate.MigrationError):
         migrate.apply()
+
+
+def test_failed_migration_is_rolled_back_entirely(fresh_db, tmp_path, monkeypatch):
+    """A migration that fails halfway must leave no partial schema behind.
+
+    executescript() implicitly commits, so this guards against that regression:
+    after a failure, neither the migration's objects nor its versions row exist.
+    """
+    assert migrate.apply() == _latest_version()
+    applied_version = _latest_version()  # captured before the broken dir is patched in
+    with db.connection() as cur:
+        cur.execute("SELECT name FROM sqlite_master")
+        before = {row[0] for row in cur.fetchall()}
+
+    broken_dir = tmp_path / "migrations"
+    shutil.copytree(migrate.MIGRATIONS_DIR, broken_dir)
+    (broken_dir / "0005_broken.sql").write_text(
+        "CREATE TABLE should_not_exist (x INTEGER);\n"
+        "THIS IS NOT VALID SQL;\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(migrate, "MIGRATIONS_DIR", broken_dir)
+
+    with pytest.raises(sqlite3.OperationalError):
+        migrate.apply()
+
+    with db.connection() as cur:
+        cur.execute("SELECT name FROM sqlite_master WHERE name = 'should_not_exist'")
+        assert cur.fetchone() is None
+        cur.execute("SELECT MAX(version) FROM schema_migrations")
+        assert cur.fetchone()[0] == applied_version
+    assert before  # sanity: the pre-state was readable
+
+
+def test_split_statements_keeps_multiline_create_table_together():
+    statements = migrate._split_statements(
+        "CREATE TABLE a (\n  x INTEGER,\n  y TEXT\n);\nCREATE INDEX i ON a(x);\n"
+    )
+    assert len(statements) == 2
+    assert statements[0].startswith("CREATE TABLE a")
+    assert statements[0].endswith(");")

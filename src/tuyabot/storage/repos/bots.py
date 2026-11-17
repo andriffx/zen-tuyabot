@@ -124,10 +124,21 @@ def record_ok(bot_id: int, username: str | None) -> None:
 
 
 def record_error(bot_id: int, message: str) -> None:
+    """Store a start-up error. The token is redacted here as well as in the
+    manager: `last_error` is served by GET /api/bots, so this repository is the
+    last line of defence against leaking the one secret the API never returns."""
+    record = get(bot_id)
+    token = record["token"] if record else None
+    cleaned = message
+    if token:
+        cleaned = cleaned.replace(token, "[token]")
+        bare = token.split(":", 1)[0]
+        if len(bare) >= 6:
+            cleaned = cleaned.replace(bare, "[token]")
     with db.connection(immediate=True) as cur:
         cur.execute(
             "UPDATE telegram_bots SET last_error = ?, updated_at = datetime('now','localtime') WHERE id = ?",
-            (message[:500], bot_id),
+            (cleaned[:500], bot_id),
         )
 
 

@@ -146,3 +146,43 @@ def test_api_duplicate_token_is_409(client, login_as):
 def test_api_bot_create_requires_manage(client, login_as):
     login_as("viewer")
     assert client.post("/api/bots", json={"label": "x", "token": "y"}).status_code == 403
+
+
+def test_invalid_token_is_redacted_from_last_error(fake_builder):
+    """last_error is returned by GET /api/bots, so it must never contain the token."""
+    token = "987654321:AAFakeSecretThatMustNotLeak"
+    bot_id = _create_bot("bocor", token)
+    FakeApplication.fail_tokens.discard(token)
+
+    async def exploding_initialize(self):
+        raise RuntimeError(f"The token `{token}` was rejected by the server.")
+
+    FakeApplication.initialize = exploding_initialize
+    try:
+        asyncio.run(fake_builder.enable(bot_id))
+    finally:
+        del FakeApplication.initialize
+
+    stored = bots_repo.get(bot_id)["last_error"]
+    assert token not in stored
+    assert "AAFakeSecretThatMustNotLeak" not in stored
+    assert "[token]" in stored
+
+
+def test_sanitize_removes_bare_id_prefix():
+    from tuyabot.telegram.manager import _sanitize
+
+    cleaned = _sanitize("error 987654321 happened", "987654321:secret")
+    assert "987654321" not in cleaned
+
+
+def test_api_never_returns_token_even_after_failure(client, login_as, ready_db):
+    from tuyabot.storage.repos import bots as repo
+
+    login_as("superadmin")
+    token = "555444333:AABigSecretValue"
+    bot_id = repo.create("gagal", token)
+    repo.record_error(bot_id, "rejected `555444333:AABigSecretValue`")
+
+    body = client.get("/api/bots").json()
+    assert token not in str(body)

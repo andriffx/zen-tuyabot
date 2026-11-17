@@ -86,10 +86,38 @@ def apply() -> int:
             if version in done:
                 continue
             script = path.read_text(encoding="utf-8")
-            cursor.executescript(script)
+            # executescript() issues an implicit COMMIT before running, which
+            # would silently drop the surrounding BEGIN IMMEDIATE and leave a
+            # failed migration half-applied. Run statement by statement on the
+            # existing cursor so the whole migration stays in one transaction.
+            for statement in _split_statements(script):
+                cursor.execute(statement)
             cursor.execute(
                 "INSERT INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)",
                 (version, name, _checksum(path)),
             )
 
     return newest_file
+
+
+def _split_statements(script: str) -> list[str]:
+    """Split a migration file into complete SQL statements.
+
+    sqlite3.execute() takes one statement at a time, and manipulating
+    sqlite3.complete_statement state by hand is fragile. Splitting on `;` at the
+    end of a line is enough for these migrations: they contain no triggers and
+    no string literal spanning a semicolon.
+    """
+    statements: list[str] = []
+    buffer: list[str] = []
+    for line in script.splitlines(keepends=True):
+        buffer.append(line)
+        if line.rstrip().endswith(";"):
+            chunk = "".join(buffer).strip()
+            if chunk:
+                statements.append(chunk)
+            buffer = []
+    tail = "".join(buffer).strip()
+    if tail:
+        statements.append(tail)
+    return statements
