@@ -167,7 +167,7 @@ Device create/update errors: `422 { detail: { errors: [{ key, message }] } }` wi
 | 6 | Dashboard overview | 6 |
 | 7 | Management pages | 7 |
 | 8 | Monitoring | 8 |
-| 9 | Backup, container, CI | 9 |
+| 9 | Backup, static build, external nginx, CI | 9 |
 
 ---
 
@@ -874,11 +874,15 @@ git add -A frontend && git commit -m "feat(fe): log pages, audit table, system h
 
 ---
 
-### Task 9: Backup, deployment, CI, integration tests
+### Task 9: Backup UI, static build, external nginx, CI, integration tests
 
-**Files:** `src/routes/(app)/backup/+page.svelte`, `src/lib/backup-form.ts`, `src/lib/components/restore-dialog.svelte`, `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`, `.github/workflows/frontend.yml`, `frontend/README.md`, `src/lib/api/integration.test.ts`, root `docker-compose.yml`, root `README.md`. Tests: `src/lib/backup-form.test.ts`, `src/lib/api/integration.test.ts`.
+**Decision:** no frontend container and no nginx inside this repo. The dashboard is a
+static build deployed to the operator's existing nginx, which already terminates TLS and
+acts as the outer wall. This removes a container, a port and a config file from the repo.
 
-**Interfaces:** `backupForm.restore()` → `{ valid, setPassword, setConfirm, setFile, toFormData }`. Integration tests hit a live backend through the **Vite dev proxy** so cookies are same-origin.
+**Files:** `src/routes/(app)/backup/+page.svelte`, `src/lib/backup-form.ts`, `src/lib/components/restore-dialog.svelte`, `.github/workflows/frontend.yml`, `frontend/README.md`, `docs/deploy/nginx-example.conf` (reference, not shipped), `src/lib/api/integration.test.ts`. Tests: `src/lib/backup-form.test.ts`, `src/lib/api/integration.test.ts`.
+
+**Interfaces:** `backupForm.restore()` → `{ valid, setPassword, setConfirm, setFile, toFormData }`. Integration tests run through the Vite dev proxy so cookies are same-origin.
 
 - [ ] **Step 1: Failing tests**
 
@@ -890,6 +894,7 @@ it('requires password and the literal RESTORE', () => {
   form.setConfirm('restore'); expect(form.valid).toBe(true);
   expect(form.toFormData().get('confirm')).toBe('RESTORE');
 });
+
 it('refuses a file over 200 MB', () => {
   expect(backupForm.restore().setFile(new File([new Uint8Array(201 * 1024 * 1024)], 'big.db')))
     .toBe('Ukuran file maksimal 200 MB');
@@ -897,10 +902,8 @@ it('refuses a file over 200 MB', () => {
 ```
 
 ```ts
-// src/lib/api/integration.test.ts — opt-in, runs through the dev proxy (same origin)
-import { api, setCsrfToken } from './client';
-
-const enabled = process.env.VITE_TEST_API === '1';   // proxy must point at a live backend
+// src/lib/api/integration.test.ts — opt-in, through the dev proxy (same origin)
+const enabled = process.env.VITE_TEST_API === '1';
 
 describe.skipIf(!enabled)('backend integration via dev proxy', () => {
   it('setup status is public', async () => {
@@ -925,66 +928,52 @@ describe.skipIf(!enabled)('backend integration via dev proxy', () => {
 });
 ```
 
-`same-origin` credentials only send cookies when the request goes to the page's origin, which is why the test targets the dev server (`http://localhost:5173`) rather than `127.0.0.1:8080`. Running it against the backend port directly would produce cookie-less requests and a false 401.
+`credentials: 'same-origin'` only sends cookies to the page's own origin, which is why the
+test targets the dev server (`http://localhost:5173`) rather than `127.0.0.1:8080`.
 
 - [ ] **Step 2: Verify failure**
 
 - [ ] **Step 3: Backup UI**
 
-Table (filename, kind badge, size, created_at), "Buat backup" (`backup.create`), download (`backup.restore`, warning that it contains secrets), restore dialog with file + password + typed `RESTORE`, warnings about maintenance and session revocation. On 422 with `stage`, render `upload|integrity|schema|version|swap` in Indonesian and state that maintenance stays on.
+Table (filename, kind badge, size, created_at), "Buat backup" (`backup.create`), download
+(`backup.restore`, warning that it contains secrets), restore dialog with file + password +
+typed `RESTORE`, warnings about maintenance and session revocation. On 422 with `stage`,
+render `upload|integrity|schema|version|swap` in Indonesian and state that maintenance stays on.
 
-- [ ] **Step 4: Deployment — networking decided**
+- [ ] **Step 4: CI workflow**
 
-Both containers run on the **host network**. This is the only arrangement that satisfies all three constraints:
+`.github/workflows/frontend.yml` — `working-directory: frontend`; `npm ci`, `npm run check`,
+`npm run test -- --run`, `npm run build`; upload `frontend/build` as an artifact so the
+operator can download the deployed bundle instead of building on the server.
 
-1. Tuya discovery needs host networking (UDP broadcast) — already true for the backend.
-2. The backend must stay on `127.0.0.1` so the API is not exposed to the LAN.
-3. nginx must reach it without Compose DNS, which host networking removes.
+- [ ] **Step 5: Reference nginx config (documentation, not shipped)**
 
-`frontend/nginx.conf` — **`proxy_set_header Host $http_host;`** (not `$host`: `$host` drops the port, and the backend's `OriginMiddleware` compares `origin.netloc` — which includes `:8081` — against `Host`, so `$host` makes every mutation return 403). Also `proxy_buffering off;` for `/api/stream`, `location / { try_files $uri /index.html; }`, and `Cache-Control: no-store` on `index.html`.
+`docs/deploy/nginx-example.conf` is a template for the operator's existing nginx. The three
+lines that must be right:
 
 ```nginx
 location /api/ {
     proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
-    proxy_set_header Host $http_host;
-    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header Host $http_host;          # NOT $host — it drops the port and breaks Origin checks
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_buffering off;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;                       # SSE
     proxy_read_timeout 1h;
 }
+location / { try_files $uri /index.html; }
 ```
 
-`frontend/Dockerfile` — `node:24-alpine` build stage (`npm ci && npm run build`), `nginx:alpine` runtime with `nginx.conf`; expose 80.
+`frontend/README.md` documents: `npm run build` output, where to copy `build/`, the nginx
+snippet, `FORWARDED_ALLOW_IPS` on the backend, and `security.cookie_secure=true` when TLS is on.
 
-Root `docker-compose.yml`:
-
-```yaml
-frontend:
-  build: { context: ./frontend, dockerfile: Dockerfile }
-  container_name: zen-tuyabot-frontend
-  restart: unless-stopped
-  network_mode: host          # same reason as backend: reach 127.0.0.1:8080, no port conflicts
-  read_only: true
-  tmpfs: [/tmp, /var/cache/nginx, /var/run]
-  cap_drop: [ALL]
-  cap_add: [CHOWN, SETUID, SETGID]
-  security_opt: ["no-new-privileges:true"]
-  depends_on: [backend]
-```
-
-nginx listens on **8081** inside the container (`listen 8081;` in `nginx.conf`), so the dashboard is `http://<host>:8081` and never collides with the backend's 8080. Port 8081 is above 1024, so `NET_BIND_SERVICE` is deliberately **not** granted — the container only needs `CHOWN` for the tmpfs cache dirs on startup.
-
-Backend compose stays as it is (`network_mode: host`, `API_HOST: 127.0.0.1`), which keeps the API unexposed.
-
-- [ ] **Step 5: Verify and commit**
+- [ ] **Step 6: Verify**
 
 ```bash
 cd frontend && npm run test -- --run && npm run check && npm run build
-cd .. && git add -A && git commit -m "feat(fe): backup, host-network deployment, nginx, ci"
+cd .. && git add -A && git commit -m "feat(fe): backup ui, static build, external nginx docs, ci"
 ```
 
-- [ ] **Step 6: End-to-end smoke (manual)**
+- [ ] **Step 7: End-to-end smoke (manual, backend must run)**
 
 ```bash
 # terminal 1
@@ -993,21 +982,24 @@ cd backend && PYTHONPATH=src python -m tuyabot.main
 cd frontend && npm run dev
 ```
 
-Expected: `/setup` → overview (tiles filled) → create device → toggle (card updates via SSE) → settings save → role edit → backup row appears → system health. Then stop the backend: pages show the offline screen. Restart the backend: retry recovers without a reload.
+Expected: `/setup` → overview → create device → toggle (SSE updates the card) → settings save →
+role edit → backup row → system health. Stop the backend: pages show the offline screen.
+Restart it: retry recovers.
 
-- [ ] **Step 7: Verify the container path**
+- [ ] **Step 8: Verify through the operator's nginx**
+
+After copying `build/` and applying the snippet:
 
 ```bash
-docker compose up -d --build
-curl -s http://127.0.0.1:8081/ | head -c 100          # index.html served
-curl -s http://127.0.0.1:8081/api/setup/status        # proxied, same origin
-# mutation through the proxy must NOT be 403 — this is the Origin/Host check:
-curl -s -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8081/api/auth/login \
-  -H 'Content-Type: application/json' -H 'Origin: http://127.0.0.1:8081' \
-  -d '{"username":"root","password":"password-panjang"}'
+curl -s https://tuya.example.com/ | head -c 80                  # index.html
+curl -s https://tuya.example.com/api/setup/status               # proxied JSON
+curl -s -o /dev/null -w '%{http_code}
+' -X POST https://tuya.example.com/api/auth/login   -H 'Content-Type: application/json' -d '{"username":"root","password":"password-panjang"}'
 ```
 
-Expected: index HTML, JSON `{"required": ...}`, and `200` (not `403`). A `403` here means nginx is sending `$host` instead of `$http_host`.
+Expected: HTML, JSON, and **not 403**. A 403 means nginx sends `$host` instead of `$http_host`.
+Then confirm in `GET /api/audit` that the login row records the real client IP, not the proxy's —
+if it shows the proxy IP, `FORWARDED_ALLOW_IPS` on the backend does not include the proxy.
 
 ---
 
@@ -1023,5 +1015,5 @@ Expected: index HTML, JSON `{"required": ...}`, and `200` (not `403`). A `403` h
 - `overview.build` takes a nested `stream: { devices, sseConnected }`, and tests use that shape.
 - Audit query parameters match the backend's accepted names exactly.
 - Integration tests run through the dev proxy so cookies are genuinely same-origin.
-- Deployment: both containers on host networking, nginx on 8081, `Host $http_host`, backend stays loopback — with a curl step that fails loudly if the Origin/Host pairing regresses.
+- Deployment: static build served by the operator's existing nginx; no frontend container, no nginx config shipped as code. `Host $http_host` is documented with the failure it prevents, and the smoke step checks both the proxy pass-through and the recorded client IP.
 - API layer is split by domain; `client.ts` holds transport only.
