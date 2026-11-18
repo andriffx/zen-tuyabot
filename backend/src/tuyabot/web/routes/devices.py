@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from typing import Any
 
@@ -15,10 +16,19 @@ from ...storage.repos import audit, logs
 from ...storage.repos import devices as devices_repo
 from ..deps import Principal, request_id, require
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
 _scan_jobs: dict[str, dict[str, Any]] = {}
 _scan_lock = asyncio.Lock()
+
+# Control verification, following the reference implementation: give the relay
+# time to move, read the DP back, and retry a few times. Tuya devices accept a
+# frame for a DP that does not exist and answer with a null ACK, so the ACK
+# alone cannot be reported as success.
+CONTROL_ATTEMPTS = 3
+CONTROL_VERIFY_DELAY = 0.4
 
 
 def _client_ip(request: Request) -> str | None:
@@ -175,6 +185,41 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
     # the failure is reported to the user like any other rejected command.
     if not isinstance(result, dict):
         result = {"success": False, "message": "balasan kontrol tidak valid"}
+
+    # A null ACK only means the device accepted the frame; it is not proof the
+    # relay moved. Tuya plugs acknowledge well-formed payloads targeting a DP
+    # that does not exist, so verify by reading the DP back, with retries —
+    # the same approach the reference implementation uses.
+    if result.get("success"):
+        verified: bool | None = None
+        for attempt in range(1, CONTROL_ATTEMPTS + 1):
+            await asyncio.sleep(CONTROL_VERIFY_DELAY)
+            verified = await service.run_tuya(controller.controller.switch_state, device)
+            if verified is on:
+                break
+            logger.info(
+                "[TUYA] %s verifikasi %d/%d: diharapkan %s, terbaca %s",
+                device["name"],
+                attempt,
+                CONTROL_ATTEMPTS,
+                on,
+                verified,
+            )
+            if attempt < CONTROL_ATTEMPTS:
+                result = await service.run_tuya(controller.controller.set_switch, device, on)
+                if not isinstance(result, dict) or not result.get("success"):
+                    break
+
+        if verified is not None and verified is not on:
+            result = {
+                "success": False,
+                "message": (
+                    f"Perangkat menjawab tetapi saklar tidak berubah "
+                    f"(diharapkan {'nyala' if on else 'mati'}). "
+                    "Periksa pemetaan DP switch."
+                ),
+            }
+
     if result.get("success"):
         state_cache.cache.invalidate(device["name"])
         await state_cache.get_status(device, force=True)

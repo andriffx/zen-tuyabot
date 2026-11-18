@@ -124,33 +124,42 @@ class TuyaController:
             return {"success": False, "message": "perangkat tidak punya DP switch"}
 
         def action(client):
-            # Tuya answers a control command (DP_SET) with a null ACK: a 28-byte
-            # response carrying no payload. tinytuya turns that into None, and in
-            # this protocol None means "the device accepted the command" — an
-            # actual failure arrives as {"Error": ...}. Treating None as failure
-            # reported "tidak membalas" for commands that had already worked.
-            raw = client.set_status(index, bool(on))
+            # tinytuya's signature is set_status(on, switch=1, nowait=False):
+            # the VALUE comes first and the DP index second. Calling it as
+            # set_status(index, on) inverted them, so the command targeted DP
+            # "True"/"False" instead of DP 1. The device still answered with a
+            # null ACK because the payload was well-formed, so every toggle
+            # reported success while the pump never changed. Named arguments
+            # here make the order impossible to get wrong again.
+            raw = client.set_status(on=bool(on), switch=index)
+            # A null ACK means "accepted", not "applied". The reference
+            # implementation never trusts it: it re-reads the DP and retries.
+            # So this only reports a transport-level problem; _control verifies
+            # the resulting state before claiming success.
             if raw is None:
-                logger.info(
-                    "[TUYA] %s menerima perintah (ACK kosong, dp=%s)",
-                    device.get("name"),
-                    index,
-                )
-                return {"success": True}
+                return {"success": True, "ack": "null"}
             if not isinstance(raw, dict):
                 logger.warning("[TUYA] %s balasan tak dikenal: %r", device.get("name"), raw)
                 return {"success": False, "message": f"balasan tak dikenal: {raw!r}"}
-            if raw.get("Error"):
+            if raw.get("Error") or raw.get("Err"):
+                message = raw.get("Error") or raw.get("Err")
                 logger.warning(
                     "[TUYA] %s menolak perintah: %s (%s)",
                     device.get("name"),
-                    raw["Error"],
+                    message,
                     _describe_target(device),
                 )
-                return {"success": False, "message": str(raw["Error"])}
+                return {"success": False, "message": str(message)}
             return {"success": True}
 
         return self._call(device, action)
+
+    def switch_state(self, device: dict) -> bool | None:
+        """Read the switch DP back; None when it cannot be determined."""
+        result = self.status(device)
+        if not result.get("success"):
+            return None
+        return result.get("switch_on")
 
     def test(self, device: dict) -> dict[str, Any]:
         return self.status(device)
