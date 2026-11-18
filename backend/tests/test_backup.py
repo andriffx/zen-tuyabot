@@ -23,7 +23,6 @@ def populated(ready_db):
 
 def test_backup_file_exists_and_is_private(populated):
     result = backup_service.create()
-    from pathlib import Path
 
     path = Path(result["path"])
     assert path.exists()
@@ -42,7 +41,6 @@ def test_backup_roundtrip_preserves_all_tables(populated):
     web_users.delete(web_users.list_all()[0]["id"])
     assert len(web_users.list_all()) == 0
 
-    from pathlib import Path
 
     backup_service.restore(Path(result["path"]))
     assert len(web_users.list_all()) == before["web_users"]
@@ -86,7 +84,6 @@ def test_failed_restore_leaves_old_db_usable(populated, tmp_path):
 
 def test_restore_bumps_generation(populated):
     result = backup_service.create()
-    from pathlib import Path
 
     before = db.current_generation()
     backup_service.restore(Path(result["path"]))
@@ -96,7 +93,6 @@ def test_restore_bumps_generation(populated):
 
 def test_restore_creates_pre_restore_backup(populated):
     result = backup_service.create()
-    from pathlib import Path
 
     backup_service.restore(Path(result["path"]))
     kinds = [row["kind"] for row in backup_runs.list_all()]
@@ -152,7 +148,6 @@ def test_restore_succeeds_while_another_thread_holds_a_connection(populated):
 def test_prune_removes_old_files(populated, monkeypatch):
     import os
     import time
-    from pathlib import Path
 
     result = backup_service.create()
     path = Path(result["path"])
@@ -232,7 +227,6 @@ def test_restore_endpoint_reads_multipart_fields(ready_db):
     "hanya dari akun web"). This test logs in for real and pins the wire format
     the dashboard sends.
     """
-    from pathlib import Path
 
     from fastapi.testclient import TestClient
 

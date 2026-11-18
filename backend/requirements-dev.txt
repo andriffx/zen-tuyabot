@@ -2,5 +2,7 @@
 pytest>=8.0
 pytest-asyncio>=0.24
 httpx>=0.28
-ruff>=0.8
+# Pinned: import sorting (I001) changes between ruff releases, and an
+# unpinned range let CI fail on code that passed locally.
+ruff==0.17.5
 pyyaml>=6.0
