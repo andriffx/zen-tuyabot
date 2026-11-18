@@ -63,6 +63,32 @@ def test_entrypoint_execs_python_so_signals_arrive():
     assert "python -m tuyabot.main" in text
 
 
+def test_entrypoint_only_touches_the_data_dir():
+    """With read_only:true, chown on /app/logs fails and the container loops.
+
+    The app creates logs/ and backups/ inside DATA_DIR itself, so the entrypoint
+    has no business with those paths. This caught a real restart loop:
+    "chown: changing ownership of '/app/logs': Read-only file system".
+    """
+    script = (ROOT / "entrypoint.sh").read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "/app/logs" not in code
+    assert "/app/backup" not in code
+    # DATA_DIR must be the one directory it prepares.
+    assert 'DATA="${DATA_DIR:-/app/data}"' in script
+
+
+def test_dockerfile_does_not_create_unused_mount_points():
+    text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    code = "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert "mkdir -p /app/logs" not in code
+    assert "mkdir -p /app/data" in code
+
+
 def test_env_example_lists_only_bootstrap_keys():
     keys = set()
     for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines():

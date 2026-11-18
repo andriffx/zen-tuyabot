@@ -31,7 +31,8 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=app:app src/ ./src/
 COPY --chown=app:app entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh && mkdir -p /app/data /app/logs && chown -R app:app /app
+# Only /app/data is a mount point; the app creates logs/ and backups/ inside it.
+RUN chmod +x ./entrypoint.sh && mkdir -p /app/data && chown -R app:app /app
 
 EXPOSE 8080
 
