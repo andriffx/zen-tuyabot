@@ -4,9 +4,13 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
-data/
-backup/
-logs/
+# Runtime data. Anchored with a leading slash on purpose: a bare `backup/` or
+# `logs/` also matched real source directories (backend/src/tuyabot/backup/,
+# frontend/src/routes/(app)/backup/ and .../logs/), which silently dropped
+# those packages from the repository.
+/data/
+/backup/
+/logs/
 *.db
 *.db-wal
 *.db-shm

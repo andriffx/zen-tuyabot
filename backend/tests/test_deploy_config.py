@@ -135,6 +135,75 @@ def test_private_runtime_files_are_gitignored():
         assert result.returncode == 0, f"{relative} is NOT gitignored"
 
 
+def test_source_packages_are_not_gitignored():
+    """Runtime-data patterns must not swallow real source directories.
+
+    A bare `backup/` or `logs/` in .gitignore also matches
+    backend/src/tuyabot/backup/ and frontend/src/routes/(app)/{backup,logs}/.
+    Those files stayed in the working tree because they were committed before
+    the rule existed, so local runs passed while a fresh clone could not import
+    tuyabot.backup at all. The patterns are anchored to the repo root now; this
+    guard checks the result rather than the pattern.
+    """
+    import subprocess
+
+    source_paths = [
+        "backend/src/tuyabot/backup/service.py",
+        "frontend/src/routes/(app)/backup/+page.svelte",
+        "frontend/src/routes/(app)/logs/power/+page.svelte",
+    ]
+    for relative in source_paths:
+        assert (REPO / relative).exists(), f"{relative} is missing from the working tree"
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", relative],
+            cwd=REPO,
+            capture_output=True,
+        )
+        assert result.returncode != 0, f"{relative} is gitignored but must be committed"
+
+    # Every one of them must also be tracked, which is what a clone receives.
+    tracked = subprocess.run(
+        ["git", "ls-files"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout.splitlines()
+    for relative in source_paths:
+        assert relative in tracked, f"{relative} is not tracked by git"
+
+
+def test_every_python_package_is_tracked():
+    """No package directory may be absent from git: the app would not import."""
+    import subprocess
+
+    tracked = set(
+        subprocess.run(
+            ["git", "ls-files"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        ).stdout.splitlines()
+    )
+    missing = []
+    for init in sorted((ROOT / "src" / "tuyabot").rglob("__init__.py")):
+        relative = init.relative_to(REPO).as_posix()
+        if relative not in tracked:
+            missing.append(relative)
+    assert not missing, f"package files missing from git: {missing}"
+    """The .env example files must not be swallowed by the .env ignore rule."""
+    import subprocess
+
+    for relative in ("backend/.env.example", "frontend/.env.example"):
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", relative],
+            cwd=REPO,
+            capture_output=True,
+        )
+        assert result.returncode != 0, f"{relative} is ignored but should be tracked"
+
+
 def test_env_examples_stay_tracked():
     """The .env example files must not be swallowed by the .env ignore rule."""
     import subprocess
