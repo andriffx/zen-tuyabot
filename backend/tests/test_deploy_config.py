@@ -80,6 +80,20 @@ def test_entrypoint_only_touches_the_data_dir():
     assert 'DATA="${DATA_DIR:-/app/data}"' in script
 
 
+def test_entrypoint_survives_a_permission_denied():
+    """Ownership is a convenience; failing it must not restart the container.
+
+    Under `set -e`, a chown/chmod that returns EPERM aborted the script before
+    the exec, so the container restarted forever with
+    "chmod: changing permissions of '/app/data': Operation not permitted".
+    """
+    script = (ROOT / "entrypoint.sh").read_text(encoding="utf-8")
+    for line in script.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("chown ", "chmod ")):
+            assert "||" in stripped, f"no fallback for failure: {stripped}"
+
+
 def test_dockerfile_does_not_create_unused_mount_points():
     text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     code = "\n".join(
