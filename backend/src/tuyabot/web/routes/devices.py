@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ...devices import controller, registry, service
+from ...devices import controller, diagnostics, registry, service
 from ...devices import dps as dps_module
 from ...infra import state_cache
 from ...storage.repos import audit, logs
@@ -244,6 +244,18 @@ async def test_device(
         "mapped": dps_module.extract(device, result.get("raw", {})),
         "dps": device["dps"],
     }
+
+
+@router.post("/{device_id}/diagnose")
+async def diagnose_device(
+    device_id: int,
+    principal: Principal = Depends(require("devices.scan")),
+) -> dict[str, Any]:
+    """Reachability report: separates a network problem from a handshake problem."""
+    device = registry.get(device_id)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
+    return await asyncio.to_thread(diagnostics.diagnose, device)
 
 
 def _scan_worker(timeout: float) -> dict[str, Any]:

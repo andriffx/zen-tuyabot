@@ -58,6 +58,19 @@ export type DeviceTestResult = {
 	dps?: Record<string, number>;
 };
 
+export type DeviceDiagnosis = {
+	device: {
+		name: string | null;
+		ip: string | null;
+		tuya_id: string | null;
+		version: number | string | null;
+		has_local_key: boolean;
+	};
+	container: { addresses: string[] };
+	checks: { name: string; target: string; ok: boolean; detail: string }[];
+	hints: string[];
+};
+
 export type ControlResult = {
 	success: boolean;
 	message: string;

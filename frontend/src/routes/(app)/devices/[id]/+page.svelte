@@ -15,20 +15,22 @@
 	} from '#lib/components/ui/table';
 	import { devicesApi } from '#lib/api';
 	import { ApiError } from '#lib/api/errors';
-	import type { Device, DeviceStatus, DeviceTestResult } from '#lib/api/types';
+	import type { Device, DeviceDiagnosis, DeviceStatus, DeviceTestResult } from '#lib/api/types';
 	import { devices } from '#lib/devices';
 	import { format } from '#lib/format';
 	import { auth } from '#lib/stores/auth.svelte';
 	import { stream } from '#lib/stores/stream.svelte';
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
-	import { ArrowLeft, FlaskConical, Trash2 } from '@lucide/svelte';
+	import { ArrowLeft, FlaskConical, Stethoscope, Trash2 } from '@lucide/svelte';
 
 	const deviceId = $derived(Number(page.params.id));
 
 	let device = $state<Device | null>(null);
 	let status = $state<DeviceStatus | null>(null);
 	let test = $state<DeviceTestResult | null>(null);
+	let diagnosis = $state<DeviceDiagnosis | null>(null);
+	let diagnosing = $state(false);
 	let loading = $state(true);
 	let testing = $state(false);
 	let error = $state<string | null>(null);
@@ -58,6 +60,17 @@
 			toast.error(failure instanceof ApiError ? failure.detail : 'Test gagal');
 		} finally {
 			testing = false;
+		}
+	}
+
+	async function runDiagnose() {
+		diagnosing = true;
+		try {
+			diagnosis = await devicesApi.diagnose(deviceId);
+		} catch (failure) {
+			toast.error(failure instanceof ApiError ? failure.detail : 'Diagnosa gagal');
+		} finally {
+			diagnosing = false;
 		}
 	}
 
@@ -100,6 +113,10 @@
 						<FlaskConical class="size-4" />
 						{testing ? 'Menguji…' : 'Test koneksi'}
 					</Button>
+					<Button variant="outline" onclick={runDiagnose} disabled={diagnosing}>
+						<Stethoscope class="size-4" />
+						{diagnosing ? 'Mendiagnosa…' : 'Diagnosa jaringan'}
+					</Button>
 				{/if}
 				{#if auth.can('devices.manage')}
 					<Button variant="destructive" onclick={remove}>
@@ -111,6 +128,49 @@
 		</div>
 
 		<div class="grid gap-4 md:grid-cols-2">
+			{#if diagnosis}
+				<Card class="md:col-span-2">
+					<CardHeader>
+						<CardTitle class="text-base">Diagnosa jaringan</CardTitle>
+					</CardHeader>
+					<CardContent class="space-y-3 text-sm">
+						<div class="grid gap-2 sm:grid-cols-2">
+							<div>
+								<p class="text-xs text-muted-foreground">Alamat container</p>
+								<p class="font-mono text-xs">
+									{diagnosis.container.addresses.join(', ') || 'tidak diketahui'}
+								</p>
+							</div>
+							<div>
+								<p class="text-xs text-muted-foreground">Perangkat</p>
+								<p class="font-mono text-xs">
+									{diagnosis.device.ip ?? 'IP belum diisi'} · v{diagnosis.device.version} ·
+									key {diagnosis.device.has_local_key ? 'ada' : 'KOSONG'}
+								</p>
+							</div>
+						</div>
+
+						{#each diagnosis.checks as check (check.name)}
+							<div class="flex items-start gap-2">
+								<Badge variant={check.ok ? 'default' : 'destructive'}>
+									{check.ok ? 'ok' : 'gagal'}
+								</Badge>
+								<div>
+									<p class="font-mono text-xs">{check.target}</p>
+									<p class="text-xs text-muted-foreground">{check.detail}</p>
+								</div>
+							</div>
+						{/each}
+
+						<ul class="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+							{#each diagnosis.hints as hint (hint)}
+								<li>{hint}</li>
+							{/each}
+						</ul>
+					</CardContent>
+				</Card>
+			{/if}
+
 			<Card>
 				<CardHeader><CardTitle class="text-base">Status</CardTitle></CardHeader>
 				<CardContent class="space-y-2 text-sm">

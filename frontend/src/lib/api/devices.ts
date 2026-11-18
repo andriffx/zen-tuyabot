@@ -2,6 +2,7 @@ import { del, get, patch, post } from './client';
 import type {
 	ControlResult,
 	Device,
+	DeviceDiagnosis,
 	DeviceStatus,
 	DeviceTemplates,
 	DeviceTestResult,
@@ -33,6 +34,7 @@ export const devicesApi = {
 	off: (id: number) => post<ControlResult>(`/api/devices/${id}/off`),
 	status: (id: number) => get<DeviceStatus>(`/api/devices/${id}/status`),
 	test: (id: number) => post<DeviceTestResult>(`/api/devices/${id}/test`),
+	diagnose: (id: number) => post<DeviceDiagnosis>(`/api/devices/${id}/diagnose`),
 	scan: () => post<{ job_id: string; status: string }>('/api/devices/scan'),
 	scanStatus: (jobId: string, signal?: AbortSignal) =>
 		get<ScanJob>(`/api/devices/scan/${jobId}`, { signal })
