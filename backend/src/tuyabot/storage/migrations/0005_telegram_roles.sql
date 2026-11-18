@@ -34,3 +34,36 @@ CREATE TABLE IF NOT EXISTS bot_messages (
     text       TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
+
+-- ── Izin role: dari katalog web ke katalog bot ────────────────────────────
+-- Dijalankan di sini, bukan ditunggu sampai Task 9, karena katalog di
+-- access/permissions.py sudah diganti ke izin bot pada Task 2. Tanpa langkah
+-- ini setiap role kehilangan seluruh izinnya dan semua endpoint menolak.
+-- Task 9 memverifikasi hasilnya.
+--
+-- Pemetaan sengaja konservatif: hanya izin yang benar-benar setara.
+-- devices.control TIDAK dipetakan menjadi akses perangkat — akses itu kini
+-- per perangkat di role_device_access, dan backfill di atas sudah mengisinya
+-- untuk pasangan role/device yang memang tercatat.
+UPDATE roles
+SET permissions = COALESCE(
+    (
+        SELECT json_group_array(t.new_key)
+        FROM (
+            SELECT DISTINCT
+                CASE j.value
+                    WHEN 'devices.view'          THEN 'monitoring'
+                    WHEN 'logs.view'             THEN 'view_logs'
+                    WHEN 'telegram_users.manage' THEN 'manage_users'
+                    WHEN 'devices.manage'        THEN 'manage_devices'
+                END AS new_key
+            FROM json_each(roles.permissions) j
+            WHERE j.value IN (
+                'devices.view', 'logs.view', 'telegram_users.manage', 'devices.manage'
+            )
+        ) t
+        WHERE t.new_key IS NOT NULL
+    ),
+    '[]'
+)
+WHERE json_valid(permissions);
