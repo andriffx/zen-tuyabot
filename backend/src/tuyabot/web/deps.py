@@ -59,30 +59,33 @@ async def current_principal(request: Request, x_api_key: str = Header(default=""
 
 
 def require(*permissions: str):
-    """Dependency factory: 403 unless the caller holds every permission.
+    """Dependency factory for web endpoints.
 
-    Every denial is audited with result=denied so privilege escalation attempts
-    are visible in the audit log.
+    The dashboard has exactly one account (the Superadmin created during setup),
+    so there is no per-permission distinction left to enforce there: being
+    authenticated *is* the authorization. Bot permissions (`monitoring`,
+    `manage_users`, ...) belong to Telegram users and are checked by
+    `access.bot_auth`, not here.
+
+    The `permissions` argument is accepted and ignored so existing route
+    declarations keep documenting intent, and so reintroducing web authorization
+    later is a one-function change rather than an audit of every route.
+
+    Denials used to be audited for escalation attempts; with a single account
+    there is no escalation to audit, and the audit write itself required a
+    permission row that no longer exists.
     """
 
-    async def dependency(request: Request, principal: Principal = Depends(current_principal)) -> Principal:
-        from ..web import auth_state
-
-        if not principal.has(*permissions):
-            auth_state.record_denial(principal, permissions, request)
-            raise HTTPException(status_code=403, detail="Tidak berizin")
+    async def dependency(principal: Principal = Depends(current_principal)) -> Principal:
         return principal
 
     return dependency
 
 
 def require_any(*permissions: str):
-    async def dependency(request: Request, principal: Principal = Depends(current_principal)) -> Principal:
-        from ..web import auth_state
+    """See `require`: authentication is the only web-side check."""
 
-        if not any(key in principal.permissions for key in permissions):
-            auth_state.record_denial(principal, permissions, request)
-            raise HTTPException(status_code=403, detail="Tidak berizin")
+    async def dependency(principal: Principal = Depends(current_principal)) -> Principal:
         return principal
 
     return dependency
