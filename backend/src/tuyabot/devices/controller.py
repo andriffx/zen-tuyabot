@@ -21,6 +21,16 @@ RETRY_LIMIT = 2
 RETRY_DELAY = 0.5
 
 
+def _describe_target(device: dict) -> str:
+    """Everything needed to diagnose reachability, without the local key."""
+    return (
+        f"ip={device.get('ip') or '-'} "
+        f"id={device.get('tuya_id') or '-'} "
+        f"version={device.get('version') or '-'} "
+        f"key={'set' if device.get('local_key') else 'MISSING'}"
+    )
+
+
 class TuyaController:
     def __init__(self) -> None:
         self._entries: dict[int, dict[str, Any]] = {}
@@ -47,6 +57,14 @@ class TuyaController:
             client.set_socketPersistent(False)
             entry = {"client": client, "lock": threading.Lock(), "signature": self._signature(device)}
             self._entries[device_id] = entry
+            # One line per new client: without it a failing control leaves no
+            # trace at all, because an unreachable device returns None instead
+            # of raising. See _describe_target().
+            logger.info(
+                "[TUYA] klien dibuat untuk %s -> %s",
+                device.get("name"),
+                _describe_target(device),
+            )
             return entry
 
     @staticmethod
@@ -79,6 +97,12 @@ class TuyaController:
         def action(client):
             raw = client.status()
             if not isinstance(raw, dict) or raw.get("Error"):
+                logger.warning(
+                    "[TUYA] %s status gagal: %r (%s)",
+                    device.get("name"),
+                    raw if not isinstance(raw, dict) else raw.get("Error"),
+                    _describe_target(device),
+                )
                 return {"success": False, "message": str(raw.get("Error") if isinstance(raw, dict) else raw)}
             raw_dps = raw.get("dps", raw)
             return {"success": True, "raw": raw_dps, **dps_module.extract(device, raw_dps)}
@@ -97,10 +121,28 @@ class TuyaController:
             # None reach result.get(...) upstream.
             raw = client.set_status(index, bool(on))
             if raw is None:
+                # No exception is raised on this path, so without an explicit
+                # log the failure leaves no trace in the container output.
+                logger.warning(
+                    "[TUYA] %s tidak membalas (dp=%s, %s)",
+                    device.get("name"),
+                    index,
+                    _describe_target(device),
+                )
+                self.forget(device["id"])
                 return {"success": False, "message": "perangkat tidak membalas"}
             if not isinstance(raw, dict):
+                logger.warning(
+                    "[TUYA] %s balasan tak dikenal: %r", device.get("name"), raw
+                )
                 return {"success": False, "message": f"balasan tak dikenal: {raw!r}"}
             if raw.get("Error"):
+                logger.warning(
+                    "[TUYA] %s menolak perintah: %s (%s)",
+                    device.get("name"),
+                    raw["Error"],
+                    _describe_target(device),
+                )
                 return {"success": False, "message": str(raw["Error"])}
             return {"success": True}
 
