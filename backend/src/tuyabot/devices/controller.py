@@ -89,7 +89,22 @@ class TuyaController:
         index = dps_module.switch_index(device)
         if index is None:
             return {"success": False, "message": "perangkat tidak punya DP switch"}
-        return self._call(device, lambda client: client.set_status(index, bool(on)))
+
+        def action(client):
+            # tinytuya returns the raw reply, which can be None (no response),
+            # an error dict, or the dps payload. Callers expect the same shape
+            # `status()` produces, so normalise it here instead of letting a
+            # None reach result.get(...) upstream.
+            raw = client.set_status(index, bool(on))
+            if raw is None:
+                return {"success": False, "message": "perangkat tidak membalas"}
+            if not isinstance(raw, dict):
+                return {"success": False, "message": f"balasan tak dikenal: {raw!r}"}
+            if raw.get("Error"):
+                return {"success": False, "message": str(raw["Error"])}
+            return {"success": True}
+
+        return self._call(device, action)
 
     def test(self, device: dict) -> dict[str, Any]:
         return self.status(device)

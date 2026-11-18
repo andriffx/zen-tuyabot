@@ -171,6 +171,10 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
         raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
 
     result = await service.run_tuya(controller.controller.set_switch, device, on)
+    # A controller that misbehaves must not turn into a 500 for the dashboard:
+    # the failure is reported to the user like any other rejected command.
+    if not isinstance(result, dict):
+        result = {"success": False, "message": "balasan kontrol tidak valid"}
     if result.get("success"):
         state_cache.cache.invalidate(device["name"])
         await state_cache.get_status(device, force=True)
