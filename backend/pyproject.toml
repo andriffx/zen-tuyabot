@@ -24,3 +24,10 @@ ignore = ["E501", "RUF001", "RUF006", "SIM105"]
 # FastAPI dependency injection is a call in the signature by design.
 "src/tuyabot/web/routes/*" = ["B008"]
 "src/tuyabot/web/deps.py" = ["B008"]
+
+[tool.ruff.lint.isort]
+# Explicit on purpose. Ruff infers "first-party" from where the package
+# lives, and that inference differed between the dev machine (src/ on the
+# path) and CI, so the same file passed locally and failed the workflow with
+# I001. Declaring it removes the guesswork.
+known-first-party = ["tuyabot"]
