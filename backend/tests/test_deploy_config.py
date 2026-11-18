@@ -10,23 +10,35 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+REPO = ROOT.parent
 
 
 def _compose() -> dict:
-    return yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    """The full-stack compose lives at the repo root: the frontend image needs
+    the repository root as its build context (it copies frontend/ and the lock)."""
+    return yaml.safe_load((REPO / "docker-compose.yml").read_text(encoding="utf-8"))
 
 
 def test_compose_has_no_hardcoded_secrets():
-    text = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    text = (REPO / "docker-compose.yml").read_text(encoding="utf-8")
     for marker in ("TELEGRAM_BOT_TOKEN=", "DASHBOARD_API_KEY=", "password"):
         assert marker not in text
 
 
 def test_compose_keeps_data_writable_volumes():
+    """One volume: the app writes the database, secret, logs/ and backups/ inside
+    DATA_DIR. Mounting ./logs or ./backup separately only created empty dirs, so
+    a backup made from the UI appeared to vanish."""
     service = _compose()["services"]["backend"]
-    volumes = service["volumes"]
-    assert "./data:/app/data" in volumes
-    assert "./backup:/app/backup" in volumes
+    assert service["volumes"] == ["./backend/data:/app/data"]
+
+
+def test_compose_exposes_only_the_web_container_on_loopback():
+    """The backend must not be reachable from outside the Docker network, and the
+    web port must bind the host loopback so the operator's nginx is the only door."""
+    services = _compose()["services"]
+    assert "ports" not in services["backend"]
+    assert services["web"]["ports"] == ["127.0.0.1:8081:80"]
 
 
 def test_compose_hardens_the_container():
