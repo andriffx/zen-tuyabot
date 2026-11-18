@@ -96,6 +96,15 @@ class TuyaController:
     def status(self, device: dict) -> dict[str, Any]:
         def action(client):
             raw = client.status()
+            if raw is None:
+                # Unlike a control ACK, a status request must carry payload;
+                # None here means the device sent nothing usable.
+                logger.warning(
+                    "[TUYA] %s tidak mengirim status (%s)",
+                    device.get("name"),
+                    _describe_target(device),
+                )
+                return {"success": False, "message": "perangkat tidak mengirim status"}
             if not isinstance(raw, dict) or raw.get("Error"):
                 logger.warning(
                     "[TUYA] %s status gagal: %r (%s)",
@@ -115,26 +124,21 @@ class TuyaController:
             return {"success": False, "message": "perangkat tidak punya DP switch"}
 
         def action(client):
-            # tinytuya returns the raw reply, which can be None (no response),
-            # an error dict, or the dps payload. Callers expect the same shape
-            # `status()` produces, so normalise it here instead of letting a
-            # None reach result.get(...) upstream.
+            # Tuya answers a control command (DP_SET) with a null ACK: a 28-byte
+            # response carrying no payload. tinytuya turns that into None, and in
+            # this protocol None means "the device accepted the command" — an
+            # actual failure arrives as {"Error": ...}. Treating None as failure
+            # reported "tidak membalas" for commands that had already worked.
             raw = client.set_status(index, bool(on))
             if raw is None:
-                # No exception is raised on this path, so without an explicit
-                # log the failure leaves no trace in the container output.
-                logger.warning(
-                    "[TUYA] %s tidak membalas (dp=%s, %s)",
+                logger.info(
+                    "[TUYA] %s menerima perintah (ACK kosong, dp=%s)",
                     device.get("name"),
                     index,
-                    _describe_target(device),
                 )
-                self.forget(device["id"])
-                return {"success": False, "message": "perangkat tidak membalas"}
+                return {"success": True}
             if not isinstance(raw, dict):
-                logger.warning(
-                    "[TUYA] %s balasan tak dikenal: %r", device.get("name"), raw
-                )
+                logger.warning("[TUYA] %s balasan tak dikenal: %r", device.get("name"), raw)
                 return {"success": False, "message": f"balasan tak dikenal: {raw!r}"}
             if raw.get("Error"):
                 logger.warning(

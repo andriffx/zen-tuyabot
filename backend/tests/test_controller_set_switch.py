@@ -54,7 +54,9 @@ DEVICE = {"id": 1, "name": "pompa", "dps": {"switch": 1}}
 @pytest.mark.parametrize(
     ("reply", "expected_success", "message_contains"),
     [
-        (None, False, "tidak membalas"),
+        # A null ACK is how Tuya confirms a control command. tinytuya returns
+        # None for it, so None means success — the opposite of a network error.
+        (None, True, ""),
         ({"Error": "Network Error"}, False, "Network Error"),
         ("bukan dict", False, "tak dikenal"),
         ({"devId": "x", "dps": {"1": True}}, True, ""),
@@ -69,6 +71,17 @@ def test_set_switch_normalises_every_reply_shape(fake_entry, reply, expected_suc
     assert result["success"] is expected_success
     if message_contains:
         assert message_contains in result["message"]
+    assert client.calls == [(1, True)]
+
+
+def test_a_null_ack_counts_as_success_and_keeps_the_client(fake_entry):
+    """Forgetting the client on a successful command would rebuild a socket
+    on every toggle; that only belongs on a real failure."""
+    client = fake_entry(None)
+
+    result = controller_module.controller.set_switch(DEVICE, True)
+
+    assert result == {"success": True}
     assert client.calls == [(1, True)]
 
 
