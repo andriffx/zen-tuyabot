@@ -56,9 +56,13 @@ services:
     depends_on:
       - backend
     ports:
-      # Host loopback only: the operator's nginx reaches it, the internet does not.
-      # Use "8081:80" instead if the proxy runs on another machine.
-      - "127.0.0.1:8081:80"
+      # Publishes on all interfaces. This container speaks plain HTTP, so the
+      # port must not be reachable from the internet: keep the operator's nginx
+      # in front of it (TLS, security headers) and restrict 8081 at the firewall,
+      # or bind a private address instead, e.g. "10.0.0.5:8081:80".
+      # The loopback-only form "127.0.0.1:8081:80" is the safer choice when nginx
+      # runs on this same host.
+      - "8081:80"
     read_only: true
     tmpfs:
       # nginx needs writable paths even with its own config read-only.

@@ -33,12 +33,19 @@ def test_compose_keeps_data_writable_volumes():
     assert service["volumes"] == ["./backend/data:/app/data"]
 
 
-def test_compose_exposes_only_the_web_container_on_loopback():
-    """The backend must not be reachable from outside the Docker network, and the
-    web port must bind the host loopback so the operator's nginx is the only door."""
+def test_compose_exposes_only_the_web_container():
+    """The backend must never be reachable from outside the Docker network.
+
+    The web container publishes 8081 on all interfaces by operator choice, so
+    this no longer asserts a loopback bind. What it does assert is the property
+    that actually matters: only `web` has a published port, and the proxy target
+    is the plain-HTTP port 80 inside the container.
+    """
     services = _compose()["services"]
     assert "ports" not in services["backend"]
-    assert services["web"]["ports"] == ["127.0.0.1:8081:80"]
+    ports = services["web"]["ports"]
+    assert len(ports) == 1
+    assert ports[0].endswith(":80"), ports[0]
 
 
 def test_compose_hardens_the_container():
