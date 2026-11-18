@@ -1,0 +1,73 @@
+# Zen Tuyabot — full stack in Docker.
+#
+#   web      nginx + SvelteKit static build, publishes 8081 (the only public port)
+#   backend  FastAPI + Telegram bots + scheduler, internal only
+#
+# The operator's own nginx terminates TLS and proxies to 127.0.0.1:8081.
+# Run from the repository root:  docker compose up -d --build
+#
+# Note: the containers use a bridge network, so Tuya LAN discovery (UDP
+# broadcast) does not reach the LAN. Add devices manually with their IP, local
+# key and Tuya ID — the form has those fields. See docs/deploy/docker.md.
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tuyabot-backend
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /app/data
+      API_HOST: 0.0.0.0
+      API_PORT: "8080"
+      # Cookies stay HttpOnly/SameSite=Lax without the Secure flag here: TLS ends
+      # at the operator's nginx, and the app cannot tell https from http. Turn on
+      # security.cookie_secure from Settings once the dashboard is behind HTTPS.
+      FORWARDED_ALLOW_IPS: 172.16.0.0/12,127.0.0.1
+      TZ: ${TZ:-Asia/Makassar}
+    volumes:
+      # Everything persistent lives here: database, secret.key, logs/, backups/.
+      - ./backend/data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 15s
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: tuyabot-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      # Host loopback only: the operator's nginx reaches it, the internet does not.
+      # Use "8081:80" instead if the proxy runs on another machine.
+      - "127.0.0.1:8081:80"
+    read_only: true
+    tmpfs:
+      # nginx needs writable paths even with its own config read-only.
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

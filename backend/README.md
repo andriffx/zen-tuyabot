@@ -45,12 +45,16 @@ Buka `http://127.0.0.1:8080/api/setup/status`. Instance baru menjawab:
 
 ### Dengan Docker
 
+Seluruh stack (nginx + SPA + API) dijalankan dari **root repo**, bukan dari sini,
+karena image frontend memakai root sebagai build context:
+
 ```bash
-cd backend
-mkdir -p data logs backup
+cd ..                       # root repo
 docker compose up -d --build
-curl http://127.0.0.1:8080/healthz
+curl http://127.0.0.1:8081/healthz        # lewat web container
 ```
+
+Panduan lengkap: `docs/deploy/docker.md`.
 
 ### Wizard pertama kali
 
