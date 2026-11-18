@@ -20,6 +20,10 @@ def _row_to_device(row) -> dict[str, Any]:
     device = dict(row)
     device["dps"] = json.loads(device.get("dps") or "{}")
     device["features"] = json.loads(device.get("features") or "{}")
+    # DEPRECATED: access_roles hanya dipertahankan agar migrasi 0005 dapat
+    # mem-backfill role_device_access. Sumber otorisasi kini role_device_access;
+    # jangan tambahkan pemakaian baru. Penghapusan kolom menyusul di migrasi
+    # tersendiri setelah kode dipastikan tidak membacanya lagi.
     device["access_roles"] = json.loads(device.get("access_roles") or "[]")
     device["is_active"] = bool(device.get("is_active"))
     return device

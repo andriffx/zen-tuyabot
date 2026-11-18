@@ -76,7 +76,10 @@ def test_failed_migration_is_rolled_back_entirely(fresh_db, tmp_path, monkeypatc
 
     broken_dir = tmp_path / "migrations"
     shutil.copytree(migrate.MIGRATIONS_DIR, broken_dir)
-    (broken_dir / "0005_broken.sql").write_text(
+    # Must be the next free version. Hardcoding a number breaks as soon as a real
+    # migration takes it: the fixture then writes a duplicate version that the
+    # runner never executes, and this test silently stops testing rollback.
+    (broken_dir / f"{applied_version + 1:04d}_broken.sql").write_text(
         "CREATE TABLE should_not_exist (x INTEGER);\n"
         "THIS IS NOT VALID SQL;\n",
         encoding="utf-8",
