@@ -18,6 +18,13 @@
 
 	let devices = $state<Device[]>([]);
 
+	// The device list is not known until load finishes, so the label list has to be
+	// derived: without `items` the trigger would render the device's id, not its label.
+	const items = $derived([
+		{ value: 'all', label: 'Semua' },
+		...devices.map((device) => ({ value: String(device.id), label: device.label }))
+	]);
+
 	onMount(async () => {
 		try {
 			devices = (await devicesApi.list()).devices;
@@ -34,7 +41,12 @@
 
 <label class="flex items-center gap-2 text-sm">
 	<span class="text-muted-foreground">Perangkat</span>
-	<Select type="single" value={value === null ? 'all' : String(value)} onValueChange={(next) => change(next ?? 'all')}>
+	<Select
+		type="single"
+		{items}
+		value={value === null ? 'all' : String(value)}
+		onValueChange={(next) => change(next ?? 'all')}
+	>
 		<SelectTrigger size="sm" class="min-w-40">
 			<SelectValue placeholder="Semua" />
 		</SelectTrigger>

@@ -55,6 +55,10 @@
 
 	const canManage = $derived(auth.can('telegram_users.manage'));
 
+	// bits-ui needs the label list up front; otherwise a row's trigger renders the
+	// raw role id until its menu has been opened once.
+	const roleItems = $derived(roles.map((role) => ({ value: String(role.id), label: role.name })));
+
 	async function load() {
 		loading = true;
 		error = null;
@@ -201,6 +205,7 @@
 								{#if canManage}
 									<Select
 										type="single"
+										items={roleItems}
 										value={String(user.role_id)}
 										onValueChange={(next) => {
 											if (next) void changeRole(user, Number(next));
@@ -271,6 +276,7 @@
 					<Label for="tg-role">Role</Label>
 					<Select
 						type="single"
+						items={roleItems}
 						value={roleId === null ? '' : String(roleId)}
 						onValueChange={(next) => (roleId = next ? Number(next) : null)}
 					>

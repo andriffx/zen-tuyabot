@@ -31,6 +31,10 @@
 
 	const editing = $derived(Boolean(user));
 
+	// bits-ui can only label a value it has seen; without `items` the trigger
+	// renders the raw id ("2") until the menu has been opened once.
+	const roleItems = $derived(roles.map((role) => ({ value: String(role.id), label: role.name })));
+
 	let username = $state('');
 	let password = $state('');
 	let roleId = $state<number | null>(null);
@@ -126,6 +130,7 @@
 					<Label for="user-role">Role</Label>
 					<Select
 						type="single"
+						items={roleItems}
 						value={roleId === null ? '' : String(roleId)}
 						onValueChange={(next) => (roleId = next ? Number(next) : null)}
 					>

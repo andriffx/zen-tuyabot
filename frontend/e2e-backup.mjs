@@ -1,17 +1,19 @@
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
+import { snap } from './e2e-helpers.mjs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? null;
 const USER = process.env.SMOKE_USER ?? 'root';
 const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
 
-// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
-// run leaves the working tree clean (they are for manual reports, not the repo).
-async function snap(name, fullPage = true) {
-	if (!out) return;
-	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
-}
+// Downloads go to an OS temp directory, never to the working tree: the file is a
+// full database dump (bot tokens, device local keys). Deriving the path from
+// SHOT_DIR was a bug — with SHOT_DIR unset it produced the literal directory
+// "null/" next to the sources and left the dump there.
+const downloadDir = mkdtempSync(join(tmpdir(), 'tuyabot-e2e-'));
+
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
@@ -55,7 +57,7 @@ let text = await page.locator('body').innerText();
 check('backup: page loads', text.includes('Backup'));
 check('backup: restore affordance shown for superadmin', text.includes('Restore'));
 check('backup: download warning explained', /rahasia/i.test(text));
-await snap(`50-backup-empty`);
+await snap(page, `50-backup-empty`);
 
 // Create a backup through the UI.
 const createButton = page.locator('button:has-text("Buat backup")').first();
@@ -64,13 +66,13 @@ await page.waitForTimeout(3000);
 text = await page.locator('body').innerText();
 check('backup: a run appears after creating', /tuyabot-\d{8}-\d{6}\.db/.test(text));
 check('backup: kind badge rendered', /manual|otomatis/.test(text));
-await snap(`51-backup-created`);
+await snap(page, `51-backup-created`);
 
 // Download the backup file to disk.
 const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
 await page.locator('button:has-text("Unduh")').first().click();
 const download = await downloadPromise;
-const savedPath = `${out}/${download.suggestedFilename()}`;
+const savedPath = join(downloadDir, download.suggestedFilename());
 await download.saveAs(savedPath);
 const size = readFileSync(savedPath).byteLength;
 check('backup: file downloads and is non-empty', size > 1000, `${size} bytes`);
@@ -89,7 +91,7 @@ await page.locator('#restore-password').fill(PASS);
 await page.locator('#restore-confirm').fill('RESTORE');
 await page.waitForTimeout(400);
 check('restore: submit enabled once the form is complete', await submit.isEnabled());
-await snap(`52-restore-dialog`);
+await snap(page, `52-restore-dialog`);
 
 // A wrong password must be refused, not silently accepted.
 await page.locator('#restore-password').fill('salah-sekali');
@@ -116,7 +118,7 @@ const restored = /Restore selesai|restore/i.test(text) && !text.includes('Restor
 // The restore revokes sessions, so the app must land on /login.
 const atLogin = new URL(page.url()).pathname === '/login';
 check('restore: succeeds with a valid file and password', restored || atLogin, page.url());
-await snap(`53-after-restore`);
+await snap(page, `53-after-restore`);
 
 // Sign back in and confirm the backup list still renders.
 await signIn();
@@ -130,4 +132,5 @@ check('no page errors', errors.length === 0, errors.join(' | '));
 const failed = results.filter((result) => !result.ok);
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
 await browser.close();
+rmSync(downloadDir, { recursive: true, force: true });
 process.exit(failed.length ? 1 : 0);

@@ -108,6 +108,7 @@
 	{:else if field.type === 'enum'}
 		<Select
 			type="single"
+			items={field.choices.map((choice) => ({ value: choice, label: choice }))}
 			value={String(localValue ?? '')}
 			disabled={disabled}
 			onValueChange={(next) => {

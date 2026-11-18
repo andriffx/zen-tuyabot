@@ -1,16 +1,10 @@
 import { chromium } from 'playwright';
+import { snap } from './e2e-helpers.mjs';
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? null;
 const USER = process.env.SMOKE_USER ?? 'root';
 const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
 
-// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
-// run leaves the working tree clean (they are for manual reports, not the repo).
-async function snap(name, fullPage = true) {
-	if (!out) return;
-	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
-}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -62,7 +56,7 @@ await page.waitForTimeout(2500);
 
 const created = await page.isVisible('text=Pompa Uji');
 check('device appears after creation', created);
-await snap(`10-device-created`);
+await snap(page, `10-device-created`);
 
 // The card must carry the template DPS and show as offline (no real device).
 const body = await page.locator('body').innerText();
@@ -76,7 +70,7 @@ check('detail page opens', new URL(page.url()).pathname.startsWith('/devices/'),
 const detail = await page.locator('body').innerText();
 check('detail shows the DPS mapping table', detail.includes('Pemetaan DPS'));
 check('detail maps switch to DP 1', /switch\s*1/.test(detail.replace(/\n/g, ' ')));
-await snap(`11-device-detail`);
+await snap(page, `11-device-detail`);
 
 // Clean up so repeated runs stay idempotent.
 page.on('dialog', (dialog) => dialog.accept());

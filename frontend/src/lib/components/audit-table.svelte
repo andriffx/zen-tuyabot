@@ -37,10 +37,26 @@
 	let actorKind = $state('');
 	let detail = $state<AuditEntry | null>(null);
 
-	const resultOptions = ['', 'ok', 'denied', 'error'];
-	const actorOptions = ['', 'web', 'telegram', 'api_key', 'system'];
+	const resultOptions = [
+		{ value: 'all', label: 'semua' },
+		{ value: 'ok', label: 'ok' },
+		{ value: 'denied', label: 'denied' },
+		{ value: 'error', label: 'error' }
+	];
+	const actorOptions = [
+		{ value: 'all', label: 'semua' },
+		{ value: 'web', label: 'web' },
+		{ value: 'telegram', label: 'telegram' },
+		{ value: 'api_key', label: 'api_key' },
+		{ value: 'system', label: 'system' }
+	];
+
+	// Guards against a slow earlier request overwriting a newer one: typing in the
+	// Aksi box fires on every keystroke, and responses can arrive out of order.
+	let requestSeq = 0;
 
 	async function load() {
+		const seq = ++requestSeq;
 		loading = true;
 		error = null;
 		try {
@@ -51,14 +67,16 @@
 				action: action || undefined,
 				actor_kind: actorKind || undefined
 			});
+			if (seq !== requestSeq) return; // a newer request superseded this one
 			entries = response.items;
 			hasNext = response.items.length === limit;
 		} catch (failure) {
+			if (seq !== requestSeq) return;
 			error = failure instanceof Error ? failure.message : 'Gagal memuat audit log';
 			entries = [];
 			hasNext = false;
 		} finally {
-			loading = false;
+			if (seq === requestSeq) loading = false;
 		}
 	}
 
@@ -66,6 +84,16 @@
 		offset = 0;
 		void load();
 	}
+
+	// The Aksi box filters by substring, so a request per keystroke is waste and
+	// makes out-of-order responses likely. Debounce, and still guard in load().
+	let actionTimer: ReturnType<typeof setTimeout> | undefined;
+	function applyActionFilter() {
+		clearTimeout(actionTimer);
+		actionTimer = setTimeout(applyFilters, 250);
+	}
+
+	$effect(() => () => clearTimeout(actionTimer));
 
 	onMount(load);
 </script>
@@ -76,6 +104,7 @@
 			<span class="text-muted-foreground">Hasil</span>
 			<Select
 				type="single"
+				items={resultOptions}
 				value={result || 'all'}
 				onValueChange={(next) => {
 					result = next === 'all' ? '' : (next ?? '');
@@ -86,10 +115,8 @@
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					{#each resultOptions as option (option)}
-						<SelectItem value={option || 'all'} label={option || 'semua'}>
-							{option || 'semua'}
-						</SelectItem>
+					{#each resultOptions as option (option.value)}
+						<SelectItem value={option.value} label={option.label}>{option.label}</SelectItem>
 					{/each}
 				</SelectContent>
 			</Select>
@@ -99,6 +126,7 @@
 			<span class="text-muted-foreground">Aktor</span>
 			<Select
 				type="single"
+				items={actorOptions}
 				value={actorKind || 'all'}
 				onValueChange={(next) => {
 					actorKind = next === 'all' ? '' : (next ?? '');
@@ -109,10 +137,8 @@
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
-					{#each actorOptions as option (option)}
-						<SelectItem value={option || 'all'} label={option || 'semua'}>
-							{option || 'semua'}
-						</SelectItem>
+					{#each actorOptions as option (option.value)}
+						<SelectItem value={option.value} label={option.label}>{option.label}</SelectItem>
 					{/each}
 				</SelectContent>
 			</Select>
@@ -124,7 +150,7 @@
 				class="h-8 w-40"
 				placeholder="mis. access.denied"
 				bind:value={action}
-				oninput={applyFilters}
+				oninput={applyActionFilter}
 			/>
 		</label>
 

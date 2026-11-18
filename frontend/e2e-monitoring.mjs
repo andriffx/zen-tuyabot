@@ -1,16 +1,10 @@
 import { chromium } from 'playwright';
+import { snap } from './e2e-helpers.mjs';
 
 const base = process.env.BASE_URL ?? 'http://localhost:5173';
-const out = process.env.SHOT_DIR ?? null;
 const USER = process.env.SMOKE_USER ?? 'root';
 const PASS = process.env.SMOKE_PASS ?? 'password-panjang';
 
-// Screenshots are opt-in: with SHOT_DIR unset nothing is written, so a normal
-// run leaves the working tree clean (they are for manual reports, not the repo).
-async function snap(name, fullPage = true) {
-	if (!out) return;
-	await page.screenshot({ path: `${out}/${name}.png`, fullPage });
-}
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
@@ -84,7 +78,7 @@ for (const [path, heading, emptyText] of [
 	check(`${path}: heading`, text.includes(heading));
 	check(`${path}: renders rows or an empty state`, text.includes(emptyText) || text.includes('baris'));
 	check(`${path}: pagination controls present`, text.includes('Berikutnya') || text.includes(emptyText));
-	await snap(`40-${path.split('/').pop()}`);
+	await snap(page, `40-${path.split('/').pop()}`);
 }
 
 // Device filter reloads the table without an error.
@@ -110,7 +104,7 @@ check('system: database section present', text.toLowerCase().includes('statistik
 check('system: schema version shown', text.includes('Versi skema'));
 check('system: maintenance toggle present', text.toLowerCase().includes('maintenance'));
 check('system: audit section present', text.toLowerCase().includes('audit log'));
-await snap(`41-system`);
+await snap(page, `41-system`);
 
 // Audit table loads at least the setup/login entries.
 check('system: audit has entries or empty state', /access\.denied|auth\.login|setup\.complete|Tidak ada entri audit/.test(text));
@@ -125,7 +119,7 @@ if ((await detailButton.count()) > 0) {
 	await page.keyboard.press('Escape');
 	await page.waitForTimeout(400);
 	check('system: Escape closes the drawer', !(await page.locator('body').innerText()).includes('Detail audit'));
-	await snap(`42-audit`);
+	await snap(page, `42-audit`);
 } else {
 	check('system: audit drawer (skipped, no rows)', true);
 }
@@ -213,7 +207,7 @@ if ((await maintSwitch.count()) > 0) {
 		'system: devices reachable again after maintenance off',
 		(await page.locator('body').innerText()).includes('Devices')
 	);
-	await snap(`43-after-maintenance`);
+	await snap(page, `43-after-maintenance`);
 } else {
 	check('system: maintenance toggle (skipped)', true);
 }

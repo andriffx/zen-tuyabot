@@ -44,6 +44,11 @@
 
 	const editing = $derived(Boolean(device));
 
+	// Single source of truth for the type options: the trigger needs `items` to
+	// render a label for a value it has not mounted yet.
+	const typeOptions = $derived(templates?.types ?? ['plug', 'bulb', 'switch', 'sensor']);
+	const typeItems = $derived(typeOptions.map((option) => ({ value: option, label: option })));
+
 	let name = $state('');
 	let label = $state('');
 	let tuyaId = $state('');
@@ -204,6 +209,7 @@
 					<Label for="dev-type">Tipe</Label>
 					<Select
 						type="single"
+						items={typeItems}
 						value={type}
 						onValueChange={(next) => {
 							if (!next) return;
@@ -215,7 +221,7 @@
 							<SelectValue placeholder="Pilih tipe" />
 						</SelectTrigger>
 						<SelectContent>
-							{#each templates?.types ?? ['plug', 'bulb', 'switch', 'sensor'] as option (option)}
+							{#each typeOptions as option (option)}
 								<SelectItem value={option} label={option}>{option}</SelectItem>
 							{/each}
 						</SelectContent>
