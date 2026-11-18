@@ -29,6 +29,19 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Local data, matched explicitly at every level the repo uses. `data/` above
+# already covers backend/data, but a file here is cheap insurance against a
+# future layout change putting a database or secret.key inside the repo.
+backend/data/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/secret.key
+
+# Env files anywhere (the .env.example files are re-included below).
+**/.env
+!**/.env.example
+
 # Screenshot lokal (untuk laporan manual, bukan bagian repo)
 Screenshot *.png
 Screenshot*.png

@@ -99,3 +99,50 @@ def test_ci_workflow_lives_at_repo_root():
     assert "ruff check ." in text
     assert "pytest -q" in text
     assert "working-directory: backend" in text
+
+
+def test_private_runtime_files_are_gitignored():
+    """The database, its WAL and secret.key must never reach a public remote.
+
+    Checked with real paths: `git check-ignore` says nothing (exit 0 means "not
+    ignored") for a path that does not exist, so probing names that are absent
+    would make this guard pass while ignoring nothing.
+    """
+    import subprocess
+
+    samples = [
+        "backend/data/tuyabot.db",
+        "backend/data/tuyabot.db-wal",
+        "backend/data/secret.key",
+        "backend/.env",
+        "frontend/.env",
+    ]
+    for relative in samples:
+        target = REPO / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        existed = target.exists()
+        if not existed:
+            target.write_text("probe", encoding="utf-8")
+        try:
+            result = subprocess.run(
+                ["git", "check-ignore", "-q", relative],
+                cwd=REPO,
+                capture_output=True,
+            )
+        finally:
+            if not existed:
+                target.unlink()
+        assert result.returncode == 0, f"{relative} is NOT gitignored"
+
+
+def test_env_examples_stay_tracked():
+    """The .env example files must not be swallowed by the .env ignore rule."""
+    import subprocess
+
+    for relative in ("backend/.env.example", "frontend/.env.example"):
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", relative],
+            cwd=REPO,
+            capture_output=True,
+        )
+        assert result.returncode != 0, f"{relative} is ignored but should be tracked"
