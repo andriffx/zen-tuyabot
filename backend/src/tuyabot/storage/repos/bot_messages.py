@@ -23,6 +23,14 @@ SEED: dict[str, str] = {
     "btn.turn_on": "🟢 Nyalakan",
     "btn.turn_off": "🔴 Matikan",
     # ── Pesan sistem ──
+    "start.public": (
+        "👋 Halo {name}!\n\n"
+        "\n"
+        "🤖 *Bot Smart Home*\n"
+        "Role Anda: *Publik*\n"
+        "\n"
+        "Pilih menu di bawah untuk mulai. Buka *Akun Saya* untuk melihat ID yang perlu didaftarkan Superadmin."
+    ),
     "start.greeting": (
         "👋 Halo {name}!\n"
         "🤖 *Bot Smart Home*\n"

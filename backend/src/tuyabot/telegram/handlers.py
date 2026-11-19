@@ -50,23 +50,20 @@ def _allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         role_limit = (role or {}).get("rate_limit_per_minute")
     return rate_limit.allow(f"tg:{_user_id(update)}", role_limit or limit, window)
 
-def _main_keyboard(principal) -> InlineKeyboardMarkup | None:
-    """Menu of what this role may actually do, labelled from bot_messages."""
-    role_id = principal.role_id
+def _main_keyboard(principal) -> InlineKeyboardMarkup:
+    """Menu of what this principal may do, labelled from bot_messages.
+
+    Always returns a keyboard. An unregistered user has no role and no device,
+    but "Akun Saya" and "Bantuan" need neither, so withholding the whole menu
+    would leave them with a promise of a menu and nothing to tap.
+    """
+    role_id = principal.role_id if principal is not None else None
     visible = bot_auth.allowed_devices(role_id)
-    if not visible:
-        return None
     rows: list[list[InlineKeyboardButton]] = []
     if bot_auth.can(role_id, "monitoring"):
         rows.append([InlineKeyboardButton(_msg("menu.monitoring"), callback_data="devices")])
     if bot_auth.can(role_id, "manage_users"):
         rows.append([InlineKeyboardButton(_msg("menu.manage"), callback_data="users")])
-    rows.append(
-        [
-            InlineKeyboardButton(_msg("menu.account"), callback_data="whoami"),
-            InlineKeyboardButton(_msg("menu.help"), callback_data="help"),
-        ]
-    )
     controllable = [
         entry
         for entry in visible
@@ -89,7 +86,14 @@ def _main_keyboard(principal) -> InlineKeyboardMarkup | None:
                 )
             )
         rows.append(buttons)
-    return InlineKeyboardMarkup(rows) if rows else None
+    # Always present, for every role and for a public user.
+    rows.append(
+        [
+            InlineKeyboardButton(_msg("menu.account"), callback_data="whoami"),
+            InlineKeyboardButton(_msg("menu.help"), callback_data="help"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
 
 
 def _deny(principal, action: str, required: str) -> None:
@@ -119,7 +123,15 @@ async def _reply(update: Update, text: str, reply_markup=None) -> None:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
     if principal is None:
-        await _reply(update, _msg("deny.public", uid=_user_id(update)))
+        # Unregistered: no role, no device, but still a menu. The two buttons it
+        # offers (account, help) are exactly what this person needs to find the
+        # ID a Superadmin must register.
+        user = update.effective_user
+        await _reply(
+            update,
+            _msg("start.public", name=getattr(user, "first_name", None) or "Tamu"),
+            reply_markup=_main_keyboard(None),
+        )
         return
 
     await _reply(

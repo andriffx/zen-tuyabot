@@ -202,7 +202,8 @@ def test_start_for_unregistered_user_explains(ready_db):
     import asyncio
 
     asyncio.run(handlers.start(update, context))
-    # Text comes from the editable deny.public template.
+    # An unregistered user now gets the public welcome (start.public) plus a
+    # menu, following the reference, instead of a bare denial.
     text = update.effective_message.sent[-1].lower()
-    assert "tidak" in text or "belum" in text
-    assert "7000" in update.effective_message.sent[-1]
+    assert "publik" in text
+    assert "akun saya" in text

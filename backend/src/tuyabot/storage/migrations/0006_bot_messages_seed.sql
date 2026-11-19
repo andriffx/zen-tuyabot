@@ -11,6 +11,12 @@ INSERT OR IGNORE INTO bot_messages (key, text) VALUES
     ('menu.manage', '👑 Manajemen Tuyabot'),
     ('btn.turn_on', '🟢 Nyalakan'),
     ('btn.turn_off', '🔴 Matikan'),
+    ('start.public', '👋 Halo {name}!
+
+🤖 *Bot Smart Home*
+Role Anda: *Publik*
+
+Pilih menu di bawah untuk mulai. Buka *Akun Saya* untuk melihat ID yang perlu didaftarkan Superadmin.'),
     ('start.greeting', '👋 Halo {name}!
 🤖 *Bot Smart Home*
 Role Anda: *{role}*
