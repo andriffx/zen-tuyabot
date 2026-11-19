@@ -62,7 +62,7 @@ class Watchdog:
         return not registry.can_control(_RolePrincipal(role_id), device, "off")
 
     def arm(self, device: dict[str, Any], *, user_id: int | None = None,
-            user_name: str | None = None) -> None:
+            user_name: str | None = None, actor_kind: str | None = None) -> None:
         from ..maintenance import service as maintenance_service
 
         if maintenance_service.is_on():
@@ -78,6 +78,9 @@ class Watchdog:
             "device": device["name"],
             "user_id": user_id,
             "user_name": user_name,
+            # Only a Telegram id is a chat. Web and API key ids are row ids in
+            # other tables and must never be used as a send target.
+            "actor_kind": actor_kind,
         }
 
     def cancel(self, device_id: int) -> bool:
@@ -192,7 +195,9 @@ class Watchdog:
         from .manager import manager
 
         state = self._state.get(device["id"], {})
-        user_id = state.get("user_id")
+        # Only a Telegram actor has a chat to notify. A web or API-key id would
+        # address an unrelated account.
+        user_id = state.get("user_id") if state.get("actor_kind") == "telegram" else None
         reason_key = "notify.watchdog_off_idle" if kind == "idle" else "notify.watchdog_off_user"
         context = {
             "device": device["label"],
@@ -213,7 +218,6 @@ class Watchdog:
             "notify.watchdog_off_admin",
             device=device["label"],
             user_name=state.get("user_name") or "tidak diketahui",
-            username=user_id or "-",
             user_id=user_id or "-",
             reason=context["reason"],
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -234,6 +238,7 @@ def sync_after_control(
     *,
     user_id: int | None = None,
     user_name: str | None = None,
+    actor_kind: str | None = None,
 ) -> None:
     """Keep the watchdog in step with a switch command that just succeeded.
 
@@ -246,7 +251,7 @@ def sync_after_control(
     if not on:
         dog.cancel(device["id"])
     elif dog.should_arm(device, role_id):
-        dog.arm(device, user_id=user_id, user_name=user_name)
+        dog.arm(device, user_id=user_id, user_name=user_name, actor_kind=actor_kind)
     else:
         dog.cancel(device["id"])
 

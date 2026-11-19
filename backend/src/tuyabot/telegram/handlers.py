@@ -73,16 +73,22 @@ def _main_keyboard(principal) -> InlineKeyboardMarkup | None:
         if entry["access"]["can_on"] or entry["access"]["can_off"]
     ]
     for entry in controllable[:4]:
-        rows.append(
-            [
+        # Offer only the action this role actually holds: a menu that offers a
+        # button the role may not use is a trap, not a convenience.
+        buttons = []
+        if entry["access"]["can_on"]:
+            buttons.append(
                 InlineKeyboardButton(
                     f"{_msg('btn.turn_on')} · {entry['label']}", callback_data=f"on:{entry['name']}"
-                ),
+                )
+            )
+        if entry["access"]["can_off"]:
+            buttons.append(
                 InlineKeyboardButton(
                     f"{_msg('btn.turn_off')} · {entry['label']}", callback_data=f"off:{entry['name']}"
-                ),
-            ]
-        )
+                )
+            )
+        rows.append(buttons)
     return InlineKeyboardMarkup(rows) if rows else None
 
 
@@ -258,6 +264,19 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
     result = await device_service.run_tuya(controller.controller.set_switch, device, on)
 
     if result.get("success"):
+        # The ACK only says the frame was accepted. Read the DP back, as the web
+        # path does, or the bot claims success for a switch that did not move.
+        verified = await device_service.run_tuya(controller.controller.switch_state, device)
+        if verified is not None and verified is not on:
+            result = {
+                "success": False,
+                "message": (
+                    f"saklar tidak berubah (diharapkan {'nyala' if on else 'mati'}). "
+                    "Periksa pemetaan DP switch."
+                ),
+            }
+
+    if result.get("success"):
         state_cache.cache.invalidate(device["name"])
         await state_cache.get_status(device, force=True)
         from . import watchdog as watchdog_module
@@ -269,6 +288,7 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
             principal.role_id,
             user_id=principal.actor_id,
             user_name=principal.label,
+            actor_kind=principal.actor_kind,
         )
 
     logs.log_activity(
@@ -338,18 +358,18 @@ async def adduser_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     args = context.args or []
     if len(args) < 2 or not args[0].lstrip("-").isdigit():
-        await _reply(update, "Format: /adduser <telegram_id> <role>")
+        await _reply(update, _msg("users.adduser_format"))
         return
 
     target_id = int(args[0])
     role = roles_repo.get_by_slug(args[1].lower())
     if role is None:
         available = ", ".join(r["slug"] for r in roles_repo.list_all())
-        await _reply(update, f"Role tidak dikenal. Pilihan: {available}")
+        await _reply(update, _msg("users.role_unknown", available=available))
         return
     if not guards_can_grant(principal, role):
         _deny(principal, "adduser", "manage_users")
-        await _reply(update, "Tidak boleh memberikan role dengan izin melebihi izin Anda.")
+        await _reply(update, _msg("users.subset_denied"))
         return
 
     telegram_users.upsert(
@@ -385,13 +405,13 @@ async def removeuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     args = context.args or []
     if not args or not args[0].lstrip("-").isdigit():
-        await _reply(update, "Format: /removeuser <telegram_id>")
+        await _reply(update, _msg("users.removeuser_format"))
         return
 
     target_id = int(args[0])
     record = telegram_users.get(target_id)
     if record is None:
-        await _reply(update, "User tidak ditemukan.")
+        await _reply(update, _msg("users.not_found"))
         return
     if not guards_can_grant(principal, roles_repo.get(record["role_id"]) or {}):
         await _reply(update, "Tidak boleh menghapus user dengan izin melebihi izin Anda.")
@@ -417,9 +437,9 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     rows = logs.recent_activities(limit=10)
     if not rows:
-        await _reply(update, "Belum ada aktivitas.")
+        await _reply(update, _msg("logs.empty"))
         return
-    lines = ["🧾 *Aktivitas terakhir*"]
+    lines = [_msg("logs.header")]
     for row in rows:
         lines.append(
             f"{row['created_at']} — {row.get('device_label') or '-'} — {row['action']} — {row['status']}"

@@ -28,6 +28,13 @@ Role: {role}'),
     ('device.none', 'Belum ada perangkat.'),
     ('device.not_found', 'Perangkat ''{name}'' tidak ditemukan.'),
     ('help.control_format', 'Format: /on <nama> atau /off <nama>'),
+    ('users.adduser_format', 'Format: /adduser <telegram_id> <role>'),
+    ('users.role_unknown', 'Role tidak dikenal. Pilihan: {available}'),
+    ('users.removeuser_format', 'Format: /removeuser <telegram_id>'),
+    ('users.not_found', 'User tidak ditemukan.'),
+    ('users.subset_denied', 'Tidak boleh memberikan role dengan izin melebihi izin Anda.'),
+    ('logs.header', '🧾 *Aktivitas terakhir*'),
+    ('logs.empty', 'Belum ada aktivitas.'),
     ('users.empty', 'Belum ada user Telegram terdaftar.'),
     ('users.row', '`{id}` — {label} — {role}{active}'),
     ('deny.public', '🚫 *Akses ditolak*
@@ -67,7 +74,7 @@ _Apabila Anda masih memerlukan air atau tindakan sistem ini merupakan suatu kesa
     ('notify.watchdog_off_admin', '🚨 *Notifikasi Otomatisasi Pompa Air*
 
 Pompa air yang sebelumnya diaktifkan oleh:
-👤 *User*   : {user_name} (@{username})
+👤 *User*   : {user_name}
 🆔 *ID*     : `{user_id}`
 
 Telah *dinonaktifkan secara otomatis* oleh sistem.

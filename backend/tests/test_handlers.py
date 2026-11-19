@@ -70,7 +70,12 @@ def fake_switch(monkeypatch):
     async def status(device, force=False):
         return {"success": True, "switch_on": state["on"], "power_w": 5.0}
 
+    def switch_state(device):
+        # The bot verifies the DP after a control command, as the web path does.
+        return state["on"]
+
     monkeypatch.setattr(controller_module.controller, "set_switch", set_switch)
+    monkeypatch.setattr(controller_module.controller, "switch_state", switch_state)
     monkeypatch.setattr("tuyabot.infra.state_cache.get_status", status)
     return state
 

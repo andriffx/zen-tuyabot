@@ -39,6 +39,27 @@ SEED: dict[str, str] = {
     "device.none": "Belum ada perangkat.",
     "device.not_found": "Perangkat '{name}' tidak ditemukan.",
     "help.control_format": "Format: /on <nama> atau /off <nama>",
+    "users.adduser_format": (
+        "Format: /adduser <telegram_id> <role>"
+    ),
+    "users.role_unknown": (
+        "Role tidak dikenal. Pilihan: {available}"
+    ),
+    "users.removeuser_format": (
+        "Format: /removeuser <telegram_id>"
+    ),
+    "users.not_found": (
+        "User tidak ditemukan."
+    ),
+    "users.subset_denied": (
+        "Tidak boleh memberikan role dengan izin melebihi izin Anda."
+    ),
+    "logs.header": (
+        "🧾 *Aktivitas terakhir*"
+    ),
+    "logs.empty": (
+        "Belum ada aktivitas."
+    ),
     "users.empty": "Belum ada user Telegram terdaftar.",
     "users.row": "`{id}` — {label} — {role}{active}",
     # ── Penolakan ──

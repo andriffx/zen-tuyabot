@@ -242,6 +242,7 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
             principal.role_id,
             user_id=principal.actor_id,
             user_name=principal.label,
+            actor_kind=principal.actor_kind,
         )
     else:
         devices_repo.mark_seen(device_id, error=str(result.get("message", "")))

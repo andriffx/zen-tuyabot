@@ -20,7 +20,13 @@ class FakeManager:
 
 def _dog(device_id: int) -> watchdog_module.Watchdog:
     dog = watchdog_module.Watchdog()
-    dog._state[device_id] = {"running": True, "device": "pompa", "user_id": 555, "user_name": "Budi"}
+    dog._state[device_id] = {
+        "running": True,
+        "device": "pompa",
+        "user_id": 555,
+        "user_name": "Budi",
+        "actor_kind": "telegram",
+    }
     return dog
 
 

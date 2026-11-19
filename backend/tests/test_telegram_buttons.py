@@ -104,7 +104,10 @@ def test_tapping_an_on_button_switches_the_device(ready_db, monkeypatch):
     telegram_users.upsert(8003, role_id, label="Budi")
     calls: list[Any] = []
 
-    async def fake_run(fn, device, on, **kwargs):
+    async def fake_run(fn, device, on=None, **kwargs):
+        # switch_state is called without an "on" value.
+        if on is None:
+            return True
         calls.append((device["name"], on))
         return {"success": True}
 
@@ -126,7 +129,9 @@ def test_an_off_button_is_refused_for_a_role_that_has_no_off_right(ready_db, mon
     telegram_users.upsert(8004, role_id, label="Budi")
     calls: list[Any] = []
 
-    async def fake_run(fn, device, on, **kwargs):
+    async def fake_run(fn, device, on=None, **kwargs):
+        if on is None:
+            return True
         calls.append(on)
         return {"success": True}
 
@@ -140,3 +145,16 @@ def test_an_off_button_is_refused_for_a_role_that_has_no_off_right(ready_db, mon
     asyncio.run(handlers.callback(update, FakeContext(8004)))
 
     assert calls == [], "role tanpa hak matikan tidak boleh mengirim perintah mati"
+
+
+def test_the_menu_offers_only_the_actions_the_role_holds(ready_db):
+    device_id = _device()
+    role_id = _setup_role(device_id, can_view=True, can_on=True, can_off=False)
+    telegram_users.upsert(8005, role_id, label="Budi")
+    context = FakeContext(8005)
+
+    keyboard = handlers._main_keyboard(context.user_data["principal"])
+    offered = [button.callback_data for row in keyboard.inline_keyboard for button in row]
+
+    assert "on:pompa" in offered
+    assert "off:pompa" not in offered, "role tanpa hak matikan tidak boleh ditawari tombol matikan"
