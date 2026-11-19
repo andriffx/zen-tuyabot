@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { asset } from '$app/paths';
 	import { goto } from '$app/navigation';
 	import { Button } from '#lib/components/ui/button';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '#lib/components/ui/card';
@@ -49,6 +50,10 @@
 <div class="flex min-h-svh items-center justify-center p-6">
 	<Card class="w-full max-w-sm">
 		<CardHeader>
+			<div class="mb-2 flex items-center gap-2">
+				<img src={asset('favicon.svg')} alt="" class="size-8" />
+				<span class="text-sm font-semibold tracking-tight">Zen Tuyabot</span>
+			</div>
 			<CardTitle>Masuk</CardTitle>
 			<CardDescription>Dashboard Zen Tuyabot</CardDescription>
 		</CardHeader>

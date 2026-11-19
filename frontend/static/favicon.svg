@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Zen Tuyabot">
+  <title>Zen Tuyabot</title>
+  <!-- Rounded tile, works on light and dark browser chrome. -->
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  <!-- Lightning bolt: the "switch" the app controls. -->
+  <path d="M36.5 10 L20 35.5 h9.5 L26.5 54 L44 28 h-9.5 z" fill="#38bdf8"/>
+  <!-- Status dot, echoing the dashboard's online indicator. -->
+  <circle cx="49" cy="15" r="5" fill="#22c55e"/>
+</svg>
