@@ -83,7 +83,7 @@ def test_unregistered_user_only_gets_public_commands(ready_db):
     import asyncio
 
     asyncio.run(handlers.devices_command(update, context))
-    assert "Tidak berizin" in update.effective_message.sent[0]
+    assert "tidak memiliki izin" in update.effective_message.sent[0].lower()
 
 
 def test_registered_operator_can_toggle_device(device, fake_switch):
@@ -113,7 +113,7 @@ def test_viewer_cannot_toggle(device, fake_switch):
 
     asyncio.run(handlers.on_command(update, context))
     assert fake_switch["calls"] == 0
-    assert "Tidak berizin" in update.effective_message.sent[0]
+    assert "tidak memiliki akses" in update.effective_message.sent[0].lower()
     assert audit.list_page(action="access.denied", result="denied")
 
 

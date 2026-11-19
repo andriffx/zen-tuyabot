@@ -17,12 +17,17 @@ from ..access import bot_auth, rate_limit
 from ..devices import controller, registry
 from ..infra import state_cache
 from ..settings import service as settings_service
-from ..storage.repos import audit, logs, telegram_users
+from ..storage.repos import audit, bot_messages, logs, telegram_users
 from ..storage.repos import roles as roles_repo
 
 logger = logging.getLogger(__name__)
 
 EMOJI = {"plug": "🔌", "bulb": "💡", "switch": "🔘", "sensor": "📡"}
+
+
+def _msg(key: str, **context) -> str:
+    """Text for a chat message, editable from the dashboard."""
+    return bot_messages.render(key, **context)
 
 
 def _principal(context: ContextTypes.DEFAULT_TYPE):
@@ -126,7 +131,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
     if principal is None:
-        await _reply(update, "Anda belum terdaftar. Role: publik.")
+        await _reply(update, _msg("deny.public", uid=_user_id(update)))
         return
     await _reply(
         update,
@@ -138,15 +143,15 @@ async def devices_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     principal = _principal(context)
     if principal is None:
         _deny(principal, "devices", "monitoring")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
     if not _allowed(update, context):
-        await _reply(update, "Terlalu sering. Coba lagi nanti.")
+        await _reply(update, _msg("deny.rate_limit"))
         return
 
     visible = registry.visible_to(principal)
     if not visible:
-        await _reply(update, "Belum ada perangkat.")
+        await _reply(update, _msg("device.none"))
         return
     lines = ["📱 *Perangkat*"]
     for device in visible:
@@ -159,10 +164,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     principal = _principal(context)
     if principal is None:
         _deny(principal, "status", "monitoring")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
     if not _allowed(update, context):
-        await _reply(update, "Terlalu sering. Coba lagi nanti.")
+        await _reply(update, _msg("deny.rate_limit"))
         return
 
     lines = ["📊 *Status*"]
@@ -184,30 +189,30 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
     # action, so /on and /off are decided separately below.
     if principal is None:
         _deny(principal, "control", "monitoring")
-        await _reply(update, "Tidak berizin mengontrol perangkat.")
+        await _reply(update, _msg("deny.role", action="mengontrol perangkat"))
         return
     if not _allowed(update, context):
-        await _reply(update, "Terlalu sering. Coba lagi nanti.")
+        await _reply(update, _msg("deny.rate_limit"))
         return
 
     args = context.args or []
     if not args:
-        await _reply(update, "Format: /on <nama> atau /off <nama>")
+        await _reply(update, _msg("help.control_format", action="on/off"))
         return
 
     device = registry.get_by_name(args[0])
     if device is None:
-        await _reply(update, f"Perangkat '{args[0]}' tidak ditemukan.")
+        await _reply(update, _msg("device.not_found", name=args[0]))
         return
     if not registry.can_view(principal, device):
-        await _reply(update, f"Perangkat '{args[0]}' tidak ditemukan.")
+        await _reply(update, _msg("device.not_found", name=args[0]))
         return
     if not registry.can_control(principal, device, "on" if on else "off"):
         # The device exists and is visible, but this role may not send that
         # command. Saying "not found" here would hide why nothing happened.
         action = "menyalakan" if on else "mematikan"
         _deny(principal, action, "control")
-        await _reply(update, f"Tidak berizin {action} perangkat ini.")
+        await _reply(update, _msg("deny.device", device=args[0]))
         return
 
     from ..devices import service as device_service
@@ -245,11 +250,11 @@ async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     principal = _principal(context)
     if principal is None or not _has(context, "manage_users"):
         _deny(principal, "users", "manage_users")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
     rows = telegram_users.list_all()
     if not rows:
-        await _reply(update, "Belum ada user Telegram terdaftar.")
+        await _reply(update, _msg("users.empty"))
         return
     lines = ["👥 *User Telegram*"]
     for row in rows:
@@ -262,7 +267,7 @@ async def adduser_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     principal = _principal(context)
     if principal is None or not _has(context, "manage_users"):
         _deny(principal, "adduser", "manage_users")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
 
     args = context.args or []
@@ -309,7 +314,7 @@ async def removeuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     principal = _principal(context)
     if principal is None or not _has(context, "manage_users"):
         _deny(principal, "removeuser", "manage_users")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
 
     args = context.args or []
@@ -342,7 +347,7 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     principal = _principal(context)
     if principal is None or not _has(context, "view_logs"):
         _deny(principal, "logs", "view_logs")
-        await _reply(update, "Tidak berizin.")
+        await _reply(update, _msg("deny.role", action="perintah ini"))
         return
     rows = logs.recent_activities(limit=10)
     if not rows:
