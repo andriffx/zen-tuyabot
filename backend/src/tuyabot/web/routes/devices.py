@@ -177,8 +177,17 @@ async def device_off(
 
 async def _control(device_id: int, on: bool, principal: Principal, request: Request) -> dict[str, Any]:
     device = registry.get(device_id)
-    if device is None or not registry.can_control(principal, device):
+    if device is None:
         raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
+
+    # Per action, not per role: a role may switch a device on and not off.
+    if not registry.can_view(principal, device):
+        raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
+    if not registry.can_control(principal, device, "on" if on else "off"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Tidak berizin {'menyalakan' if on else 'mematikan'} perangkat ini",
+        )
 
     result = await service.run_tuya(controller.controller.set_switch, device, on)
     # A controller that misbehaves must not turn into a 500 for the dashboard:

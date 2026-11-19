@@ -60,21 +60,30 @@ def get_by_name(name: str) -> dict[str, Any] | None:
 
 
 def can_view(principal, device: dict[str, Any]) -> bool:
-    """Visibility rule.
+    """Visibility comes from role_device_access, per role and per device.
 
-    `access_roles` restricts ordinary viewers. A role holding `devices.manage`
-    always sees every device: it can already edit or delete them, and a
-    manager who cannot see a device they created cannot operate the system.
+    The deprecated `devices.access_roles` column is deliberately not consulted:
+    it exists only so migration 0005 could backfill the new table.
     """
-    if principal is None or "devices.view" not in principal.permissions:
+    if principal is None or principal.role_id is None:
         return False
-    if "devices.manage" in principal.permissions:
-        return True
-    allowed = device.get("access_roles") or []
-    return not allowed or principal.role_id in allowed
+    from ..access import bot_auth
+
+    return bot_auth.can_device(principal.role_id, device["id"], "view")
 
 
-def can_control(principal, device: dict[str, Any]) -> bool:
-    if principal is None or "devices.control" not in principal.permissions:
+def can_control(principal, device: dict[str, Any], action: str | None = None) -> bool:
+    """Whether this principal may switch the device.
+
+    `action` selects "on" or "off". Omitting it asks "may control at all",
+    which is true when either action is allowed.
+    """
+    if principal is None or principal.role_id is None:
         return False
-    return can_view(principal, device)
+    from ..access import bot_auth
+
+    if action in ("on", "off"):
+        return bot_auth.can_device(principal.role_id, device["id"], action)
+    return bot_auth.can_device(principal.role_id, device["id"], "on") or bot_auth.can_device(
+        principal.role_id, device["id"], "off"
+    )

@@ -13,7 +13,7 @@ from typing import Any
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from ..access import rate_limit
+from ..access import bot_auth, rate_limit
 from ..devices import controller, registry
 from ..infra import state_cache
 from ..settings import service as settings_service
@@ -80,7 +80,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     keyboard = None
-    if "devices.view" in principal.permissions:
+    if principal.role_id is not None and bot_auth.allowed_devices(principal.role_id):
         keyboard = InlineKeyboardMarkup(
             [[InlineKeyboardButton("📱 Daftar perangkat", callback_data="devices")]]
         )
@@ -100,17 +100,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/whoami — identitas & role Anda",
     ]
     principal = _principal(context)
-    if principal and "devices.view" in principal.permissions:
+    if principal is None:
+        await _reply(update, "\n".join(lines))
+        return
+
+    role_id = principal.role_id
+    if bot_auth.allowed_devices(role_id):
         lines += ["/devices — daftar perangkat", "/status — status semua perangkat"]
-    if principal and "devices.control" in principal.permissions:
+    if any(
+        entry["access"]["can_on"] or entry["access"]["can_off"]
+        for entry in bot_auth.allowed_devices(role_id)
+    ):
         lines += ["/on <nama> — nyalakan", "/off <nama> — matikan"]
-    if principal and "telegram_users.manage" in principal.permissions:
+    if bot_auth.can(role_id, "manage_users"):
         lines += [
             "/users — daftar user Telegram",
             "/adduser <telegram_id> <role> — daftarkan user",
             "/removeuser <telegram_id> — hapus user",
         ]
-    if principal and "logs.view" in principal.permissions:
+    if bot_auth.can(role_id, "view_logs"):
         lines += ["/logs — aktivitas terakhir"]
     await _reply(update, "\n".join(lines))
 
@@ -128,8 +136,8 @@ async def whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def devices_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "devices.view"):
-        _deny(principal, "devices", "devices.view")
+    if principal is None:
+        _deny(principal, "devices", "monitoring")
         await _reply(update, "Tidak berizin.")
         return
     if not _allowed(update, context):
@@ -149,8 +157,8 @@ async def devices_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "devices.view"):
-        _deny(principal, "status", "devices.view")
+    if principal is None:
+        _deny(principal, "status", "monitoring")
         await _reply(update, "Tidak berizin.")
         return
     if not _allowed(update, context):
@@ -172,8 +180,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "devices.control"):
-        _deny(principal, "control", "devices.control")
+    # There is no role-wide control permission: the right is per device and per
+    # action, so /on and /off are decided separately below.
+    if principal is None:
+        _deny(principal, "control", "monitoring")
         await _reply(update, "Tidak berizin mengontrol perangkat.")
         return
     if not _allowed(update, context):
@@ -186,8 +196,18 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
         return
 
     device = registry.get_by_name(args[0])
-    if device is None or not registry.can_control(principal, device):
+    if device is None:
         await _reply(update, f"Perangkat '{args[0]}' tidak ditemukan.")
+        return
+    if not registry.can_view(principal, device):
+        await _reply(update, f"Perangkat '{args[0]}' tidak ditemukan.")
+        return
+    if not registry.can_control(principal, device, "on" if on else "off"):
+        # The device exists and is visible, but this role may not send that
+        # command. Saying "not found" here would hide why nothing happened.
+        action = "menyalakan" if on else "mematikan"
+        _deny(principal, action, "control")
+        await _reply(update, f"Tidak berizin {action} perangkat ini.")
         return
 
     from ..devices import service as device_service
@@ -223,8 +243,8 @@ async def off_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "telegram_users.view"):
-        _deny(principal, "users", "telegram_users.view")
+    if principal is None or not _has(context, "manage_users"):
+        _deny(principal, "users", "manage_users")
         await _reply(update, "Tidak berizin.")
         return
     rows = telegram_users.list_all()
@@ -240,8 +260,8 @@ async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def adduser_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "telegram_users.manage"):
-        _deny(principal, "adduser", "telegram_users.manage")
+    if principal is None or not _has(context, "manage_users"):
+        _deny(principal, "adduser", "manage_users")
         await _reply(update, "Tidak berizin.")
         return
 
@@ -257,7 +277,7 @@ async def adduser_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await _reply(update, f"Role tidak dikenal. Pilihan: {available}")
         return
     if not guards_can_grant(principal, role):
-        _deny(principal, "adduser", "telegram_users.manage")
+        _deny(principal, "adduser", "manage_users")
         await _reply(update, "Tidak boleh memberikan role dengan izin melebihi izin Anda.")
         return
 
@@ -287,8 +307,8 @@ def guards_can_grant(actor, role) -> bool:
 
 async def removeuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "telegram_users.manage"):
-        _deny(principal, "removeuser", "telegram_users.manage")
+    if principal is None or not _has(context, "manage_users"):
+        _deny(principal, "removeuser", "manage_users")
         await _reply(update, "Tidak berizin.")
         return
 
@@ -320,8 +340,8 @@ async def removeuser_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
-    if principal is None or not _has(context, "logs.view"):
-        _deny(principal, "logs", "logs.view")
+    if principal is None or not _has(context, "view_logs"):
+        _deny(principal, "logs", "view_logs")
         await _reply(update, "Tidak berizin.")
         return
     rows = logs.recent_activities(limit=10)

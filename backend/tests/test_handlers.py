@@ -48,6 +48,16 @@ def device(ready_db):
     registry.reset_cache()
 
 
+def grant(slug: str, device_id: int, *, view=True, on=True, off=True) -> None:
+    """Give a role access to a device. Access is per role and per device now."""
+    from tuyabot.storage.repos import role_devices
+
+    role_id = roles.get_by_slug(slug)["id"]
+    role_devices.set_for_role(role_id, [
+        {"device_id": device_id, "can_view": view, "can_on": on, "can_off": off}
+    ])
+
+
 @pytest.fixture()
 def fake_switch(monkeypatch):
     state = {"on": False, "calls": 0}
@@ -77,6 +87,7 @@ def test_unregistered_user_only_gets_public_commands(ready_db):
 
 
 def test_registered_operator_can_toggle_device(device, fake_switch):
+    grant("operator", device)
     telegram_users.upsert(2001, _role("operator"))
     update = FakeUpdate(2001)
     context = FakeContext(2001, ["pompa"])
@@ -92,6 +103,8 @@ def test_registered_operator_can_toggle_device(device, fake_switch):
 def test_viewer_cannot_toggle(device, fake_switch):
     from tuyabot.storage.repos import audit
 
+    # View only: no can_on, so the toggle must be refused.
+    grant("viewer", device, on=False, off=False)
     telegram_users.upsert(2002, _role("viewer"))
     update = FakeUpdate(2002)
     context = FakeContext(2002, ["pompa"])
@@ -107,13 +120,10 @@ def test_viewer_cannot_toggle(device, fake_switch):
 def test_adduser_enforces_subset(device):
     from tuyabot.storage.repos import roles as roles_repo
 
-    # A role that may manage Telegram users but lacks system.restore: it must
-    # not be able to grant superadmin.
+    # A role that may manage Telegram users but holds fewer rights than
+    # superadmin: it must not be able to grant that role.
     manager_role = roles_repo.get_by_slug("operator")
-    roles_repo.update(
-        manager_role["id"],
-        permissions=["devices.view", "devices.control", "telegram_users.view", "telegram_users.manage"],
-    )
+    roles_repo.update(manager_role["id"], permissions=["manage_users"])
     telegram_users.upsert(3000, manager_role["id"])
     update = FakeUpdate(3000)
     context = FakeContext(3000, ["9999", "superadmin"])
@@ -143,14 +153,14 @@ def test_adduser_creates_telegram_user_only(device):
 
 def test_status_lists_only_visible_devices(device, fake_switch):
     viewer = _role("viewer")
-    other = devices_repo.create(
+    grant("viewer", device)  # only "pompa" is visible to this role
+    devices_repo.create(
         {
             "name": "rahasia",
             "label": "Rahasia",
             "tuya_id": "d2",
             "local_key": "k",
             "type": "plug",
-            "access_roles": [_role("admin")],
         }
     )
     registry.reload()
@@ -164,10 +174,10 @@ def test_status_lists_only_visible_devices(device, fake_switch):
     text = update.effective_message.sent[-1]
     assert "Pompa" in text
     assert "Rahasia" not in text
-    assert other is not None
 
 
-def test_help_adapts_to_permissions(ready_db):
+def test_help_adapts_to_permissions(device):
+    grant("viewer", device, on=False, off=False)
     telegram_users.upsert(6000, _role("viewer"))
     update = FakeUpdate(6000)
     context = FakeContext(6000)
