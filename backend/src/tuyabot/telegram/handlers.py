@@ -50,6 +50,42 @@ def _allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
         role_limit = (role or {}).get("rate_limit_per_minute")
     return rate_limit.allow(f"tg:{_user_id(update)}", role_limit or limit, window)
 
+def _main_keyboard(principal) -> InlineKeyboardMarkup | None:
+    """Menu of what this role may actually do, labelled from bot_messages."""
+    role_id = principal.role_id
+    visible = bot_auth.allowed_devices(role_id)
+    if not visible:
+        return None
+    rows: list[list[InlineKeyboardButton]] = []
+    if bot_auth.can(role_id, "monitoring"):
+        rows.append([InlineKeyboardButton(_msg("menu.monitoring"), callback_data="devices")])
+    if bot_auth.can(role_id, "manage_users"):
+        rows.append([InlineKeyboardButton(_msg("menu.manage"), callback_data="users")])
+    rows.append(
+        [
+            InlineKeyboardButton(_msg("menu.account"), callback_data="whoami"),
+            InlineKeyboardButton(_msg("menu.help"), callback_data="help"),
+        ]
+    )
+    controllable = [
+        entry
+        for entry in visible
+        if entry["access"]["can_on"] or entry["access"]["can_off"]
+    ]
+    for entry in controllable[:4]:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"{_msg('btn.turn_on')} · {entry['label']}", callback_data=f"on:{entry['name']}"
+                ),
+                InlineKeyboardButton(
+                    f"{_msg('btn.turn_off')} · {entry['label']}", callback_data=f"off:{entry['name']}"
+                ),
+            ]
+        )
+    return InlineKeyboardMarkup(rows) if rows else None
+
+
 def _deny(principal, action: str, required: str) -> None:
     audit.write(
         "telegram",
@@ -77,29 +113,19 @@ async def _reply(update: Update, text: str, reply_markup=None) -> None:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     principal = _principal(context)
     if principal is None:
-        await _reply(
-            update,
-            "👋 Selamat datang.\n\nAkun Telegram Anda belum terdaftar. "
-            "Minta Superadmin mendaftarkan ID Anda dari dashboard.",
-        )
+        await _reply(update, _msg("deny.public", uid=_user_id(update)))
         return
 
-    keyboard = None
-    if principal.role_id is not None and bot_auth.allowed_devices(principal.role_id):
-        keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("📱 Daftar perangkat", callback_data="devices")]]
-        )
     await _reply(
         update,
-        f"👋 Halo *{principal.label}*.\nRole: *{principal.role_slug}*\n\n"
-        "Perintah: /status /devices /on <nama> /off <nama>",
-        reply_markup=keyboard,
+        _msg("start.greeting", name=principal.label, role=principal.role_slug),
+        reply_markup=_main_keyboard(principal),
     )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lines = [
-        "📖 *Bantuan*",
+        _msg("help.header"),
         "/start — mulai",
         "/help — bantuan ini",
         "/whoami — identitas & role Anda",
@@ -125,6 +151,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         ]
     if bot_auth.can(role_id, "view_logs"):
         lines += ["/logs — aktivitas terakhir"]
+    if len(lines) == 4:
+        # Nothing beyond the basics is available to this role.
+        lines.append(_msg("help.text"))
     await _reply(update, "\n".join(lines))
 
 
@@ -135,7 +164,12 @@ async def whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     await _reply(
         update,
-        f"🪪 ID: `{principal.actor_id}`\nNama: {principal.label}\nRole: *{principal.role_slug}*",
+        _msg(
+            "account.info",
+            uid=principal.actor_id,
+            name=principal.label,
+            role=principal.role_slug,
+        ),
     )
 
 
@@ -153,7 +187,7 @@ async def devices_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not visible:
         await _reply(update, _msg("device.none"))
         return
-    lines = ["📱 *Perangkat*"]
+    lines = [_msg("devices.header")]
     for device in visible:
         icon = EMOJI.get(device["type"], "🔌")
         lines.append(f"{icon} *{device['label']}* (`{device['name']}`)")
@@ -170,7 +204,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _reply(update, _msg("deny.rate_limit"))
         return
 
-    lines = ["📊 *Status*"]
+    lines = [_msg("status.header")]
     for device in registry.visible_to(principal):
         result = await state_cache.get_status(device)
         if result.get("success"):
@@ -179,7 +213,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             suffix = f" ({power:.1f}W)" if isinstance(power, (int, float)) else ""
             lines.append(f"{EMOJI.get(device['type'], '🔌')} {device['label']}: {state}{suffix}")
         else:
-            lines.append(f"⚪ {device['label']}: offline")
+            lines.append(_msg("notify.device_offline", device=device["label"]))
     await _reply(update, "\n".join(lines))
 
 
@@ -217,6 +251,7 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
 
     from ..devices import service as device_service
 
+    await _reply(update, _msg("control.pending", device=device["label"]))
     result = await device_service.run_tuya(controller.controller.set_switch, device, on)
 
     if result.get("success"):
@@ -224,7 +259,14 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
         await state_cache.get_status(device, force=True)
         from . import watchdog as watchdog_module
 
-        watchdog_module.sync_after_control(watchdog_module.watchdog, device, on, principal.role_id)
+        watchdog_module.sync_after_control(
+            watchdog_module.watchdog,
+            device,
+            on,
+            principal.role_id,
+            user_id=principal.actor_id,
+            user_name=principal.label,
+        )
 
     logs.log_activity(
         device_id=device["id"],
@@ -235,10 +277,23 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
         message=str(result.get("message", "")),
     )
     if result.get("success"):
-        verdict = f"{device['label']}: {'dinyalakan' if on else 'dimatikan'}"
-        await _reply(update, f"✅ {verdict}")
+        if result.get("ack") == "null" and result.get("unchanged"):
+            await _reply(update, _msg("control.noop", device=device["label"]))
+        else:
+            key = "control.ok_on" if on else "control.ok_off"
+            await _reply(update, _msg(key, device=device["label"]))
     else:
-        await _reply(update, f"⚠️ Gagal: {result.get('message', 'perangkat tidak merespons')}")
+        await _reply(
+            update,
+            _msg(
+                "control.offline"
+                if "tidak" in str(result.get("message", "")).lower()
+                else "control.fail",
+                action="menyalakan" if on else "mematikan",
+                device=device["label"],
+                message=result.get("message", "perangkat tidak merespons"),
+            ),
+        )
 
 
 async def on_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -259,10 +314,17 @@ async def users_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not rows:
         await _reply(update, _msg("users.empty"))
         return
-    lines = ["👥 *User Telegram*"]
+    lines = [_msg("users.header")]
     for row in rows:
-        active = "" if row["is_active"] else " (nonaktif)"
-        lines.append(f"`{row['telegram_id']}` — {row.get('label') or '-'} — {row['role_slug']}{active}")
+        lines.append(
+            _msg(
+                "users.row",
+                id=row["telegram_id"],
+                label=row.get("label") or "-",
+                role=row["role_slug"],
+                active="" if row["is_active"] else " (nonaktif)",
+            )
+        )
     await _reply(update, "\n".join(lines))
 
 

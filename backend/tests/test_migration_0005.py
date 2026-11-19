@@ -9,6 +9,7 @@ import sqlite3
 from pathlib import Path
 
 from tuyabot.storage import db, migrate
+from tuyabot.storage.repos import bot_messages
 
 OLD_SCHEMA = Path(__file__).resolve().parent.parent / "src/tuyabot/storage/migrations"
 
@@ -77,4 +78,4 @@ def test_bot_messages_are_seeded(tmp_path):
         cur.execute("SELECT COUNT(*) AS n FROM bot_messages")
         count = cur.fetchone()["n"]
 
-    assert count == 32
+    assert count == len(bot_messages.SEED)

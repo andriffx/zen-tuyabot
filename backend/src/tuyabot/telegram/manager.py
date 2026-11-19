@@ -57,6 +57,20 @@ class BotManager:
     def status(self) -> dict[int, str]:
         return dict(self._status)
 
+    async def send(self, chat_id: int, text: str) -> bool:
+        """Send a message through the first running bot.
+
+        Used by the watchdog, which has no Update to reply to. Failure is
+        reported, never raised: a notification must not take the caller down.
+        """
+        for application in self._apps.values():
+            try:
+                await application.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+                return True
+            except Exception as exc:  # network, blocked bot, unknown chat
+                logger.warning("[TELEGRAM] gagal kirim ke %s: %s", chat_id, exc)
+        return False
+
     def running_ids(self) -> list[int]:
         return [bot_id for bot_id, state in self._status.items() if state == "running"]
 

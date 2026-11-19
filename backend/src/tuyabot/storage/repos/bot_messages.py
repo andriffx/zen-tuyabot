@@ -17,15 +17,11 @@ from .. import db
 SEED: dict[str, str] = {
     # ── Label tombol ──
     "menu.account": "🪪 Akun Saya",
-    "menu.clean": "🧹 Clean Message",
     "menu.help": "📖 Bantuan",
-    "menu.air": "💧 Air",
-    "menu.lampu": "💡 Lampu",
     "menu.monitoring": "📊 Monitoring",
     "menu.manage": "👑 Manajemen Tuyabot",
     "btn.turn_on": "🟢 Nyalakan",
     "btn.turn_off": "🔴 Matikan",
-    "btn.status": "ℹ️ Status",
     # ── Pesan sistem ──
     "start.greeting": (
         "👋 Halo {name}!\n"
@@ -34,7 +30,11 @@ SEED: dict[str, str] = {
         "Pilih menu di bawah untuk mulai:"
     ),
     "account.info": "🪪 *Informasi Akun Anda*\n`User ID: {uid}`\nRole: {role}",
+    "help.header": "📖 *Bantuan*",
     "help.text": "Perintah: /status /devices /on <nama> /off <nama>",
+    "users.header": "👥 *User Telegram*",
+    "devices.header": "📱 *Perangkat*",
+    "status.header": "📊 *Status*",
     "device.none": "Belum ada perangkat.",
     "device.not_found": "Perangkat '{name}' tidak ditemukan.",
     "help.control_format": "Format: /on <nama> atau /off <nama>",
@@ -52,10 +52,10 @@ SEED: dict[str, str] = {
     "deny.rate_limit": "Terlalu sering. Coba lagi nanti.",
     # ── Hasil kontrol ──
     "control.pending": "⏳ Mengirim perintah…",
-    "control.ok_on": "✅ Berhasil Dinyalakan",
-    "control.ok_off": "✅ Berhasil Dimatikan",
+    "control.ok_on": "✅ {device} berhasil dinyalakan",
+    "control.ok_off": "✅ {device} berhasil dimatikan",
     "control.noop": "ℹ️ Sudah Menyala (tidak ada perubahan)",
-    "control.fail": "❌ Gagal {action} — {message}",
+    "control.fail": "❌ Gagal {action} {device} — {message}",
     "control.offline": (
         "❌ *{device} tidak terhubung*\n\n"
         "_Error:_ `{message}`\n\n"

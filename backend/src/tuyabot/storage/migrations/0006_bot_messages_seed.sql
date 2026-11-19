@@ -6,15 +6,11 @@
 -- tidak tertimpa saat migrasi dijalankan ulang.
 INSERT OR IGNORE INTO bot_messages (key, text) VALUES
     ('menu.account', '🪪 Akun Saya'),
-    ('menu.clean', '🧹 Clean Message'),
     ('menu.help', '📖 Bantuan'),
-    ('menu.air', '💧 Air'),
-    ('menu.lampu', '💡 Lampu'),
     ('menu.monitoring', '📊 Monitoring'),
     ('menu.manage', '👑 Manajemen Tuyabot'),
     ('btn.turn_on', '🟢 Nyalakan'),
     ('btn.turn_off', '🔴 Matikan'),
-    ('btn.status', 'ℹ️ Status'),
     ('start.greeting', '👋 Halo {name}!
 🤖 *Bot Smart Home*
 Role Anda: *{role}*
@@ -23,6 +19,10 @@ Pilih menu di bawah untuk mulai:'),
     ('account.info', '🪪 *Informasi Akun Anda*
 `User ID: {uid}`
 Role: {role}'),
+    ('help.header', '📖 *Bantuan*'),
+    ('users.header', '👥 *User Telegram*'),
+    ('devices.header', '📱 *Perangkat*'),
+    ('status.header', '📊 *Status*'),
     ('help.text', 'Perintah: /status /devices /on <nama> /off <nama>'),
     ('device.none', 'Belum ada perangkat.'),
     ('device.not_found', 'Perangkat ''{name}'' tidak ditemukan.'),
@@ -39,10 +39,10 @@ Anda tidak memiliki izin untuk {action}.'),
     ('deny.device', 'Anda tidak memiliki akses ke {device}.'),
     ('deny.rate_limit', 'Terlalu sering. Coba lagi nanti.'),
     ('control.pending', '⏳ Mengirim perintah…'),
-    ('control.ok_on', '✅ Berhasil Dinyalakan'),
-    ('control.ok_off', '✅ Berhasil Dimatikan'),
+    ('control.ok_on', '✅ {device} berhasil dinyalakan'),
+    ('control.ok_off', '✅ {device} berhasil dimatikan'),
     ('control.noop', 'ℹ️ Sudah Menyala (tidak ada perubahan)'),
-    ('control.fail', '❌ Gagal {action} — {message}'),
+    ('control.fail', '❌ Gagal {action} {device} — {message}'),
     ('control.offline', '❌ *{device} tidak terhubung*
 
 _Error:_ `{message}`

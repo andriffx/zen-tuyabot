@@ -197,4 +197,7 @@ def test_start_for_unregistered_user_explains(ready_db):
     import asyncio
 
     asyncio.run(handlers.start(update, context))
-    assert "belum terdaftar" in update.effective_message.sent[-1]
+    # Text comes from the editable deny.public template.
+    text = update.effective_message.sent[-1].lower()
+    assert "tidak" in text or "belum" in text
+    assert "7000" in update.effective_message.sent[-1]

@@ -235,7 +235,14 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
         devices_repo.mark_seen(device_id)
         from ...telegram import watchdog as watchdog_module
 
-        watchdog_module.sync_after_control(watchdog_module.watchdog, device, on, principal.role_id)
+        watchdog_module.sync_after_control(
+            watchdog_module.watchdog,
+            device,
+            on,
+            principal.role_id,
+            user_id=principal.actor_id,
+            user_name=principal.label,
+        )
     else:
         devices_repo.mark_seen(device_id, error=str(result.get("message", "")))
 

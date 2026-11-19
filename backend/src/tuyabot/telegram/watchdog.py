@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any
 
 from ..devices import controller, service
@@ -60,7 +61,8 @@ class Watchdog:
 
         return not registry.can_control(_RolePrincipal(role_id), device, "off")
 
-    def arm(self, device: dict[str, Any]) -> None:
+    def arm(self, device: dict[str, Any], *, user_id: int | None = None,
+            user_name: str | None = None) -> None:
         from ..maintenance import service as maintenance_service
 
         if maintenance_service.is_on():
@@ -69,7 +71,14 @@ class Watchdog:
         self.cancel(device["id"])
         task = asyncio.create_task(self._loop(device), name=f"watchdog:{device['name']}")
         self._tasks[device["id"]] = task
-        self._state[device["id"]] = {"running": True, "device": device["name"]}
+        # Remember the person to notify: the auto-off message is addressed to
+        # whoever switched it on, and an admin copy mentions them.
+        self._state[device["id"]] = {
+            "running": True,
+            "device": device["name"],
+            "user_id": user_id,
+            "user_name": user_name,
+        }
 
     def cancel(self, device_id: int) -> bool:
         task = self._tasks.pop(device_id, None)
@@ -149,9 +158,58 @@ class Watchdog:
             details={"reason": reason, "success": bool(result.get("success"))},
         )
         logger.warning("[WATCHDOG] %s dimatikan otomatis: %s", device["name"], reason)
+        await self._notify(device, reason, bool(result.get("success")))
+
+    async def _notify(self, device: dict[str, Any], reason: str, ok: bool) -> None:
+        """Tell the user who switched it on, and the admins, what happened.
+
+        Text comes from bot_messages so an operator can rewrite it. A failed
+        switch-off is not announced as done: the message would be a lie.
+        """
+        from ..storage.repos import bot_messages, telegram_users
+        from .manager import manager
+
+        state = self._state.get(device["id"], {})
+        user_id = state.get("user_id")
+        reason_key = "notify.watchdog_off_idle" if reason == "idle" else "notify.watchdog_off_user"
+        context = {
+            "device": device["label"],
+            "minutes": int(float(self._setting(device["id"], "watchdog.max_minutes"))),
+            "power": 0.0,
+            "reason": reason,
+        }
+        if not ok:
+            context["reason"] = f"{reason} (perintah gagal)"
+
+        if user_id:
+            await manager.send(user_id, bot_messages.render(reason_key, **context))
+
+        admin_text = bot_messages.render(
+            "notify.watchdog_off_admin",
+            device=device["label"],
+            user_name=state.get("user_name") or "tidak diketahui",
+            username=user_id or "-",
+            user_id=user_id or "-",
+            reason=context["reason"],
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        for record in telegram_users.list_all():
+            if record["telegram_id"] == user_id:
+                continue
+            role = record.get("role_slug")
+            if role in ("superadmin", "admin"):
+                await manager.send(record["telegram_id"], admin_text)
 
 
-def sync_after_control(dog: Watchdog, device: dict[str, Any], on: bool, role_id: int | None) -> None:
+def sync_after_control(
+    dog: Watchdog,
+    device: dict[str, Any],
+    on: bool,
+    role_id: int | None,
+    *,
+    user_id: int | None = None,
+    user_name: str | None = None,
+) -> None:
     """Keep the watchdog in step with a switch command that just succeeded.
 
     An off command always cancels: the pump is off, so there is nothing left to
@@ -163,7 +221,7 @@ def sync_after_control(dog: Watchdog, device: dict[str, Any], on: bool, role_id:
     if not on:
         dog.cancel(device["id"])
     elif dog.should_arm(device, role_id):
-        dog.arm(device)
+        dog.arm(device, user_id=user_id, user_name=user_name)
     else:
         dog.cancel(device["id"])
 

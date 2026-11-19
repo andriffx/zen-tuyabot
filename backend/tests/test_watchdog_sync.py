@@ -13,8 +13,9 @@ class FakeDog:
     def should_arm(self, device, role_id):
         return self._arm
 
-    def arm(self, device):
+    def arm(self, device, **kwargs):
         self.armed += 1
+        self.last_arm = kwargs
 
     def cancel(self, device_id):
         self.cancelled += 1
