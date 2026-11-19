@@ -1,9 +1,10 @@
 """Per-device auto-off watchdog.
 
-Armed when a device with `features.watchdog` is switched on by a user whose
-role matches `watchdog.trigger_role_slug` (default: the device is protected for
-that role). While armed it samples power; if the device looks idle (a pump with
-no water) or exceeds the maximum duration, it is switched off.
+Armed when a device with `features.watchdog` is switched on by a role that
+cannot switch it off again — a role that can only turn the pump on has no way
+to stop it, so the system must. While armed it samples power; if the device
+looks idle (a pump with no water) or exceeds the maximum duration, it is
+switched off. A role that can switch the device off never arms it.
 
 Cancelled — and not re-armed — while maintenance is on: turning a pump off in
 the middle of maintenance is not the intended behaviour.
@@ -29,7 +30,6 @@ DEFAULTS = {
     "watchdog.max_minutes": 30,
     "watchdog.sample_count": 3,
     "watchdog.sample_delay_seconds": 2.0,
-    "watchdog.trigger_role_slug": "operator",
 }
 
 
@@ -41,11 +41,21 @@ class Watchdog:
     def _setting(self, device_id: int, key: str) -> Any:
         return devices_repo.get_setting(device_id, key, DEFAULTS[key])
 
-    def should_arm(self, device: dict[str, Any], principal_role_slug: str | None) -> bool:
+    def should_arm(self, device: dict[str, Any], role_id: int | None) -> bool:
+        """Arm when the actor cannot switch the device off themselves.
+
+        This mirrors the reference: a role that can only switch the pump on has
+        no way to stop it, so the system must. A role that can switch it off is
+        trusted to do so, and no watchdog runs. Deriving the rule from the
+        permission means it cannot drift out of sync with it.
+        """
         if not dps_module.has_feature(device, "watchdog"):
             return False
-        trigger = self._setting(device["id"], "watchdog.trigger_role_slug")
-        return principal_role_slug == trigger
+        from ..access import bot_auth
+
+        if role_id is None:
+            return False
+        return not bot_auth.can_device(role_id, device["id"], "off")
 
     def arm(self, device: dict[str, Any]) -> None:
         from ..maintenance import service as maintenance_service

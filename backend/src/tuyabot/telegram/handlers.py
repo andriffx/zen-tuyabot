@@ -222,6 +222,14 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
     if result.get("success"):
         state_cache.cache.invalidate(device["name"])
         await state_cache.get_status(device, force=True)
+        # Arm only when this role cannot stop the device itself; switching off
+        # cancels it. See Watchdog.should_arm.
+        from . import watchdog as watchdog_module
+
+        if on and watchdog_module.watchdog.should_arm(device, principal.role_id):
+            watchdog_module.watchdog.arm(device)
+        elif not on:
+            watchdog_module.watchdog.cancel(device["id"])
 
     logs.log_activity(
         device_id=device["id"],

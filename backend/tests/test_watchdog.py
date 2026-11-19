@@ -114,7 +114,7 @@ def test_maintenance_prevents_arming(wide_device, tuya_state, ready_db):
     maintenance_service.disable()
 
 
-def test_should_arm_only_for_trigger_role(ready_db):
+def test_should_arm_follows_the_ability_to_switch_off(ready_db):
     device_id = devices_repo.create(
         {
             "name": "pompa2",
@@ -129,11 +129,21 @@ def test_should_arm_only_for_trigger_role(ready_db):
     device = registry.get(device_id)
     dog = watchdog_module.Watchdog()
 
-    assert dog.should_arm(device, "operator") is True
-    assert dog.should_arm(device, "admin") is False
+    from tuyabot.storage.repos import role_devices, roles
 
-    devices_repo.set_setting(device_id, "watchdog.trigger_role_slug", "viewer")
-    assert dog.should_arm(device, "viewer") is True
+    # A role that can only switch the pump on has no way to stop it, so the
+    # watchdog arms. A role that can switch it off is trusted to do so.
+    on_only = roles.create("ononly", "On only", None, [])
+    role_devices.set_for_role(
+        on_only, [{"device_id": device_id, "can_view": True, "can_on": True, "can_off": False}]
+    )
+    full = roles.create("full", "Full", None, [])
+    role_devices.set_for_role(
+        full, [{"device_id": device_id, "can_view": True, "can_on": True, "can_off": True}]
+    )
+
+    assert dog.should_arm(device, on_only) is True
+    assert dog.should_arm(device, full) is False
     registry.reset_cache()
 
 
