@@ -2,7 +2,7 @@
 -- Dipisah dari 0005 agar skema dan data tidak bercampur: 0005 bisa
 -- ditinjau sebagai perubahan struktur saja.
 
--- Seed 29 teks chat. INSERT OR IGNORE: operator yang sudah mengubah teks
+-- Seed 41 teks chat. INSERT OR IGNORE: operator yang sudah mengubah teks
 -- tidak tertimpa saat migrasi dijalankan ulang.
 INSERT OR IGNORE INTO bot_messages (key, text) VALUES
     ('menu.account', '🪪 Akun Saya'),
