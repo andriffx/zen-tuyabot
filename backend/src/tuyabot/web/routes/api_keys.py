@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/api-keys", tags=["api-keys"])
 
 
 @router.get("")
-async def list_keys(principal: Principal = Depends(require("apikeys.manage"))) -> dict[str, Any]:
+async def list_keys(principal: Principal = Depends(require("manage_users"))) -> dict[str, Any]:
     role_names = {role["id"]: role for role in roles.list_all()}
     keys = []
     for key in api_keys.list_all():
@@ -29,7 +29,7 @@ async def list_keys(principal: Principal = Depends(require("apikeys.manage"))) -
 async def create_key(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("apikeys.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     role_id = payload.get("role_id")
     if not isinstance(role_id, int):
@@ -59,7 +59,7 @@ async def create_key(
 async def delete_key(
     key_id: int,
     request: Request,
-    principal: Principal = Depends(require("apikeys.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     api_keys.delete(key_id)
     audit.write(

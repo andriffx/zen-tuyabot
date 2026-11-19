@@ -29,7 +29,7 @@ def _schedule(coro) -> None:
 
 
 @router.get("")
-async def list_bots(principal: Principal = Depends(require("bots.view"))) -> dict[str, Any]:
+async def list_bots(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     bots = bots_repo.list_all()
     statuses = manager_module.manager.status()
     for bot in bots:
@@ -41,7 +41,7 @@ async def list_bots(principal: Principal = Depends(require("bots.view"))) -> dic
 async def create_bot(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     label = str(payload.get("label", "")).strip() or "Bot"
     token = str(payload.get("token", "")).strip()
@@ -70,7 +70,7 @@ async def update_bot(
     bot_id: int,
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     record = bots_repo.get(bot_id)
     if record is None:
@@ -114,7 +114,7 @@ async def update_bot(
 async def enable_bot(
     bot_id: int,
     request: Request,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     if bots_repo.get(bot_id) is None:
         raise HTTPException(status_code=404, detail="Bot tidak ditemukan")
@@ -133,7 +133,7 @@ async def enable_bot(
 async def disable_bot(
     bot_id: int,
     request: Request,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     if bots_repo.get(bot_id) is None:
         raise HTTPException(status_code=404, detail="Bot tidak ditemukan")
@@ -151,7 +151,7 @@ async def disable_bot(
 @router.post("/{bot_id}/test")
 async def test_bot(
     bot_id: int,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     token = bots_repo.get_token(bot_id)
     if token is None:
@@ -166,7 +166,7 @@ async def test_bot(
 async def delete_bot(
     bot_id: int,
     request: Request,
-    principal: Principal = Depends(require("bots.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     if bots_repo.get(bot_id) is None:
         raise HTTPException(status_code=404, detail="Bot tidak ditemukan")

@@ -20,7 +20,7 @@ async def maintenance_status() -> dict[str, Any]:
 
 
 @router.get("/maintenance")
-async def read_maintenance(principal: Principal = Depends(require("system.view"))) -> dict[str, Any]:
+async def read_maintenance(principal: Principal = Depends(require("monitoring"))) -> dict[str, Any]:
     return {"maintenance": maintenance_service.is_on(), "state": maintenance_service.current()}
 
 
@@ -28,7 +28,7 @@ async def read_maintenance(principal: Principal = Depends(require("system.view")
 async def toggle_maintenance(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("system.maintenance")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     enabled = bool(payload.get("enabled", True))
     reason = payload.get("reason")
@@ -66,7 +66,7 @@ async def read_audit(
     request_id_filter: str | None = Query(default=None, alias="request_id"),
     since: str | None = Query(default=None),
     until: str | None = Query(default=None),
-    principal: Principal = Depends(require("audit.view")),
+    principal: Principal = Depends(require("monitoring")),
 ) -> dict[str, Any]:
     rows = audit.list_page(
         limit=limit,

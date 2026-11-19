@@ -32,7 +32,7 @@ def _target_guard(principal: Principal, record: dict) -> None:
 
 
 @router.get("")
-async def list_users(principal: Principal = Depends(require("telegram_users.view"))) -> dict[str, Any]:
+async def list_users(principal: Principal = Depends(require("manage_users"))) -> dict[str, Any]:
     rows = telegram_users.list_all()
     for row in rows:
         row.pop("role_permissions", None)
@@ -43,7 +43,7 @@ async def list_users(principal: Principal = Depends(require("telegram_users.view
 async def create_user(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("telegram_users.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     telegram_id = payload.get("telegram_id")
     if isinstance(telegram_id, bool) or not isinstance(telegram_id, int):
@@ -77,7 +77,7 @@ async def update_user(
     telegram_id: int,
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("telegram_users.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     record = telegram_users.get(telegram_id)
     if record is None:
@@ -121,7 +121,7 @@ async def update_user(
 async def delete_user(
     telegram_id: int,
     request: Request,
-    principal: Principal = Depends(require("telegram_users.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     record = telegram_users.get(telegram_id)
     if record is None:

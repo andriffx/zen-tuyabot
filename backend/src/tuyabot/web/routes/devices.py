@@ -65,13 +65,13 @@ def _resolve_visible(principal: Principal, device_id: int) -> dict[str, Any]:
 
 
 @router.get("")
-async def list_devices(principal: Principal = Depends(require("devices.view"))) -> dict[str, Any]:
+async def list_devices(principal: Principal = Depends(require("monitoring"))) -> dict[str, Any]:
     devices = registry.visible_to(principal)
     return {"devices": [_public_device(device) for device in devices]}
 
 
 @router.get("/templates")
-async def list_templates(principal: Principal = Depends(require("devices.view"))) -> dict[str, Any]:
+async def list_templates(principal: Principal = Depends(require("monitoring"))) -> dict[str, Any]:
     return {
         "templates": dps_module.TEMPLATES,
         "types": list(dps_module.DEVICE_TYPES),
@@ -83,7 +83,7 @@ async def list_templates(principal: Principal = Depends(require("devices.view"))
 async def create_device(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("devices.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     try:
         device_id = devices_repo.create(payload)
@@ -105,7 +105,7 @@ async def update_device(
     device_id: int,
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("devices.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     before = devices_repo.get(device_id)
     if before is None:
@@ -138,7 +138,7 @@ async def update_device(
 async def delete_device(
     device_id: int,
     request: Request,
-    principal: Principal = Depends(require("devices.manage")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     device = devices_repo.get(device_id)
     if device is None:
@@ -161,7 +161,7 @@ async def delete_device(
 async def device_on(
     device_id: int,
     request: Request,
-    principal: Principal = Depends(require("devices.control")),
+    principal: Principal = Depends(require("monitoring")),
 ) -> dict[str, Any]:
     return await _control(device_id, True, principal, request)
 
@@ -170,15 +170,24 @@ async def device_on(
 async def device_off(
     device_id: int,
     request: Request,
-    principal: Principal = Depends(require("devices.control")),
+    principal: Principal = Depends(require("monitoring")),
 ) -> dict[str, Any]:
     return await _control(device_id, False, principal, request)
 
 
 async def _control(device_id: int, on: bool, principal: Principal, request: Request) -> dict[str, Any]:
     device = registry.get(device_id)
-    if device is None or not registry.can_control(principal, device):
+    if device is None:
         raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
+
+    # Per action, not per role: a role may switch a device on and not off.
+    if not registry.can_view(principal, device):
+        raise HTTPException(status_code=404, detail="Perangkat tidak ditemukan")
+    if not registry.can_control(principal, device, "on" if on else "off"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Tidak berizin {'menyalakan' if on else 'mematikan'} perangkat ini",
+        )
 
     result = await service.run_tuya(controller.controller.set_switch, device, on)
     # A controller that misbehaves must not turn into a 500 for the dashboard:
@@ -224,6 +233,17 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
         state_cache.cache.invalidate(device["name"])
         await state_cache.get_status(device, force=True)
         devices_repo.mark_seen(device_id)
+        from ...telegram import watchdog as watchdog_module
+
+        watchdog_module.sync_after_control(
+            watchdog_module.watchdog,
+            device,
+            on,
+            principal.role_id,
+            user_id=principal.actor_id,
+            user_name=principal.label,
+            actor_kind=principal.actor_kind,
+        )
     else:
         devices_repo.mark_seen(device_id, error=str(result.get("message", "")))
 
@@ -246,7 +266,7 @@ async def _control(device_id: int, on: bool, principal: Principal, request: Requ
 @router.get("/{device_id}/status")
 async def device_status(
     device_id: int,
-    principal: Principal = Depends(require("devices.view")),
+    principal: Principal = Depends(require("monitoring")),
 ) -> dict[str, Any]:
     device = _resolve_visible(principal, device_id)
     result = await state_cache.get_status(device)
@@ -271,7 +291,7 @@ async def device_status(
 @router.post("/{device_id}/test")
 async def test_device(
     device_id: int,
-    principal: Principal = Depends(require("devices.scan")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     device = registry.get(device_id)
     if device is None:
@@ -294,7 +314,7 @@ async def test_device(
 @router.post("/{device_id}/diagnose")
 async def diagnose_device(
     device_id: int,
-    principal: Principal = Depends(require("devices.scan")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     """Reachability report: separates a network problem from a handshake problem."""
     device = registry.get(device_id)
@@ -322,7 +342,7 @@ def _scan_worker(timeout: float) -> dict[str, Any]:
 
 
 @router.post("/scan")
-async def start_scan(principal: Principal = Depends(require("devices.scan"))) -> dict[str, Any]:
+async def start_scan(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     from ...settings import service as settings_service
 
     async with _scan_lock:
@@ -350,7 +370,7 @@ async def start_scan(principal: Principal = Depends(require("devices.scan"))) ->
 @router.get("/scan/{job_id}")
 async def scan_status(
     job_id: str,
-    principal: Principal = Depends(require("devices.scan")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     job = _scan_jobs.get(job_id)
     if job is None:

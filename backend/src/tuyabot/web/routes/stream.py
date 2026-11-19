@@ -47,7 +47,7 @@ def build_snapshot(principal: Principal) -> dict[str, Any]:
 
 @router.get("/stream")
 async def stream(
-    principal: Principal = Depends(require("devices.view")),
+    principal: Principal = Depends(require("monitoring")),
 ) -> StreamingResponse:
     interval = max(1.0, float(settings_service.get_float("monitoring.warm_interval_seconds") / 20))
 

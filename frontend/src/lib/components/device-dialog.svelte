@@ -248,25 +248,12 @@
 					</div>
 				</div>
 
-				<div class="space-y-2 sm:col-span-2">
-					<p class="text-sm font-medium">Role yang boleh mengakses</p>
+				<div class="space-y-1 sm:col-span-2">
+					<p class="text-sm font-medium">Akses role</p>
 					<p class="text-xs text-muted-foreground">
-						Kosong berarti semua role dengan izin melihat perangkat.
+						Hak akses per perangkat diatur di halaman Roles: buka role, lalu centang Lihat /
+						Nyalakan / Matikan untuk perangkat ini.
 					</p>
-					<div class="flex flex-wrap gap-4">
-						{#each roles as role (role.id)}
-							<label class="flex items-center gap-2 text-sm">
-								<Checkbox
-									checked={accessRoles.includes(role.id)}
-									onCheckedChange={() => toggleRole(role.id)}
-								/>
-								{role.name}
-							</label>
-						{/each}
-					</div>
-					{#if fieldErrors.access_roles}
-						<p class="text-xs text-destructive">{fieldErrors.access_roles}</p>
-					{/if}
 				</div>
 
 				{#if formError}

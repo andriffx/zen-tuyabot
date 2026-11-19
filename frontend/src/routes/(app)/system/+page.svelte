@@ -26,8 +26,8 @@
 	let reason = $state('');
 	let autoOff = $state(60);
 
-	const canMaintenance = $derived(auth.can('system.maintenance'));
-	const canAudit = $derived(auth.can('audit.view'));
+	const canMaintenance = $derived(auth.can('manage_devices'));
+	const canAudit = $derived(auth.can('monitoring'));
 
 	async function load() {
 		loading = true;

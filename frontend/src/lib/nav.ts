@@ -5,20 +5,24 @@ export type NavItem = {
 	icon: string;
 };
 
-/** Exactly 12 entries; a test pins the count and uniqueness. */
+/**
+ * Sidebar entries. The web has a single account, so `permission` no longer
+ * filters anything — it stays as documentation of the area each page belongs
+ * to, and the visibility filter keeps working if web roles ever return.
+ */
 const items: NavItem[] = [
-	{ href: '/', label: 'Overview', permission: 'devices.view', icon: 'gauge' },
-	{ href: '/devices', label: 'Devices', permission: 'devices.view', icon: 'plug' },
-	{ href: '/logs/power', label: 'Log Daya', permission: 'logs.view', icon: 'zap' },
-	{ href: '/logs/activities', label: 'Log Aktivitas', permission: 'logs.view', icon: 'list' },
-	{ href: '/logs/errors', label: 'Log Error', permission: 'logs.view', icon: 'alert' },
-	{ href: '/settings', label: 'Settings', permission: 'settings.view', icon: 'sliders' },
-	{ href: '/users', label: 'Users', permission: 'users.view', icon: 'users' },
-	{ href: '/telegram-users', label: 'Telegram Users', permission: 'telegram_users.view', icon: 'send' },
-	{ href: '/roles', label: 'Roles', permission: 'users.view', icon: 'shield' },
-	{ href: '/bots', label: 'Bots', permission: 'bots.view', icon: 'bot' },
-	{ href: '/backup', label: 'Backup', permission: 'backup.view', icon: 'archive' },
-	{ href: '/system', label: 'System', permission: 'system.view', icon: 'activity' }
+	{ href: '/', label: 'Overview', permission: 'monitoring', icon: 'gauge' },
+	{ href: '/devices', label: 'Devices', permission: 'monitoring', icon: 'plug' },
+	{ href: '/logs/power', label: 'Log Daya', permission: 'view_logs', icon: 'zap' },
+	{ href: '/logs/activities', label: 'Log Aktivitas', permission: 'view_logs', icon: 'list' },
+	{ href: '/logs/errors', label: 'Log Error', permission: 'view_logs', icon: 'alert' },
+	{ href: '/settings', label: 'Settings', permission: 'manage_devices', icon: 'sliders' },
+	{ href: '/telegram-users', label: 'Telegram Users', permission: 'manage_users', icon: 'send' },
+	{ href: '/roles', label: 'Roles', permission: 'manage_users', icon: 'shield' },
+	{ href: '/messages', label: 'Pesan Bot', permission: 'manage_users', icon: 'message' },
+	{ href: '/bots', label: 'Bots', permission: 'manage_devices', icon: 'bot' },
+	{ href: '/backup', label: 'Backup', permission: 'manage_devices', icon: 'archive' },
+	{ href: '/system', label: 'System', permission: 'monitoring', icon: 'activity' }
 ];
 
 export const nav = {

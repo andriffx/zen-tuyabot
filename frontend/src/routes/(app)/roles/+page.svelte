@@ -26,7 +26,7 @@
 	let saving = $state(false);
 	let formError = $state<string | null>(null);
 
-	const canManage = $derived(auth.can('roles.manage'));
+	const canManage = $derived(auth.can('manage_users'));
 	const groups = $derived(catalog ? permissions.groupCatalog(catalog) : []);
 	const editable = $derived(
 		catalog ? permissions.editable(catalog, [...(auth.me?.permissions ?? [])]) : []
@@ -50,7 +50,7 @@
 		slug = '';
 		name = '';
 		description = '';
-		selected = ['devices.view'];
+		selected = ['monitoring'];
 		formError = null;
 		dialogOpen = true;
 	}

@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["stats"])
 
 
 @router.get("/stats")
-async def read_stats(principal: Principal = Depends(require("system.view"))) -> dict[str, Any]:
+async def read_stats(principal: Principal = Depends(require("monitoring"))) -> dict[str, Any]:
     return stats_repo.stats()
 
 

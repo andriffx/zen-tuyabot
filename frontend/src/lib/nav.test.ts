@@ -8,8 +8,8 @@ describe('nav', () => {
 	});
 
 	it('filters by permission', () => {
-		const visible = nav.visibleItems((permission) => permission === 'devices.view');
-		expect(visible.map((item) => item.href)).toEqual(['/', '/devices']);
+		const visible = nav.visibleItems((permission) => permission === 'monitoring');
+		expect(visible.map((item) => item.href)).toEqual(['/', '/devices', '/system']);
 	});
 
 	it('a superadmin sees every entry', () => {
@@ -17,16 +17,9 @@ describe('nav', () => {
 	});
 
 	it('every entry declares a permission from the backend catalog', () => {
-		const known = new Set([
-			'devices.view',
-			'logs.view',
-			'settings.view',
-			'users.view',
-			'telegram_users.view',
-			'bots.view',
-			'backup.view',
-			'system.view'
-		]);
+		// The web has one account, so entries tag the bot permission area they
+		// belong to; these are the four keys in access/permissions.py.
+		const known = new Set(['monitoring', 'manage_users', 'manage_devices', 'view_logs']);
 		for (const item of nav.items) {
 			expect(known.has(item.permission)).toBe(true);
 		}

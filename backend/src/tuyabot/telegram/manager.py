@@ -57,6 +57,34 @@ class BotManager:
     def status(self) -> dict[int, str]:
         return dict(self._status)
 
+    async def send(self, chat_id: int, text: str) -> bool:
+        """Send a message through the first running bot.
+
+        Used by the watchdog, which has no Update to reply to. Failure is
+        reported, never raised: a notification must not take the caller down.
+        """
+        # Snapshot under the lock: enable/disable mutate self._apps, and
+        # iterating it live can raise "dictionary changed size".
+        async with self._lock:
+            applications = list(self._apps.values())
+        if not applications:
+            return False
+
+        application = applications[0]
+        for parse_mode in ("Markdown", None):
+            # An operator edit with a stray * or _ makes Telegram reject the
+            # Markdown; retrying as plain text still delivers the news.
+            try:
+                await application.bot.send_message(
+                    chat_id=chat_id, text=text, parse_mode=parse_mode
+                )
+                return True
+            except Exception as exc:  # network, blocked bot, unknown chat
+                logger.warning(
+                    "[TELEGRAM] gagal kirim ke %s (parse_mode=%s): %s", chat_id, parse_mode, exc
+                )
+        return False
+
     def running_ids(self) -> list[int]:
         return [bot_id for bot_id, state in self._status.items() if state == "running"]
 
