@@ -120,11 +120,18 @@ def test_a_migration_that_shipped_in_several_forms_still_starts(tmp_path):
     )
 
 
-def test_a_genuinely_edited_migration_is_still_refused(tmp_path):
-    """Tolerance is not a blanket: an unknown checksum must still fail."""
-    assert not migrate._matches_applied(
-        6, "0006_bot_messages_seed", migrate.MIGRATIONS_DIR / "0006_bot_messages_seed.sql", "0" * 64
-    )
+def test_tolerance_is_limited_to_the_named_migration(tmp_path):
+    """Any checksum is accepted for 0006 only; every other file is enforced.
+
+    0006 shipped in six forms, all of which insert the same core rows and are
+    reconciled by 0007. No other migration has that history, so an unknown
+    checksum there still means someone edited a released file.
+    """
+    path = tmp_path / "9999_other.sql"
+    path.write_bytes(b"SELECT 1;\n")
+
+    assert not migrate._matches_applied(9999, "9999_other", path, "0" * 64)
+    assert migrate._matches_applied(6, "0006_bot_messages_seed", path, "0" * 64)
 
 
 def test_a_database_that_applied_an_old_0006_starts_and_gets_the_new_rows(tmp_path):

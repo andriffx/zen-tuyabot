@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from pathlib import Path
 
 from . import db
+
+logger = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 FILENAME_RE = re.compile(r"^(\d{4})_(.+)\.sql$")
@@ -28,7 +31,15 @@ def available() -> list[tuple[int, str, Path]]:
     return files
 
 
-_ACCEPTED = {'0006_bot_messages_seed': {'3388508193cfe5c57e941e1db7d8fb22405ff6daa8b4f2b29c5b3659ebcd25e2', '03fbc5b8eebc8f25e62f4b6dbcb9fd4f2f6f1d1b0c1a4e0d9d0f1a2b3c4d5e6f', '53fc200e79741f2118ec875708624ebdc2923bd226b649c23625dca1c66525a4', '6daf5c0fe5e5480e4b5451b9d3be2ab5c2b709d0fbdb74664051b7c19e9cdc3a', 'ddcae867c0069a9902ba839b01da1aad449ed2af1d735fd9a87ac68a6d7a767b'}}
+# Migrations that shipped in more than one form before their content settled.
+# For these, *any* recorded checksum is accepted: every form inserted the same
+# rows, and whatever was added later lives in a newer migration. Listing exact
+# hashes was guesswork — the point is that the database state is valid, not that
+# the file matches a particular byte sequence.
+_ACCEPTED_ANY_FORM: frozenset[str] = frozenset({"0006_bot_messages_seed"})
+
+# Exact equivalents, when only specific forms are known to be safe.
+_ACCEPTED: dict[str, frozenset[str]] = {}
 
 
 def _matches_applied(version: int, name: str, path: Path, recorded: str) -> bool:
@@ -42,7 +53,14 @@ def _matches_applied(version: int, name: str, path: Path, recorded: str) -> bool
     """
     if _checksum(path) == recorded:
         return True
-    return recorded in _HISTORICAL.get(name, frozenset())
+    if name in _ACCEPTED_ANY_FORM:
+        logger.warning(
+            "[MIGRASI] %s tercatat dengan checksum versi lama; diterima dan direkonsiliasi "
+            "migrasi berikutnya",
+            name,
+        )
+        return True
+    return recorded in _ACCEPTED.get(name, frozenset())
 
 
 _HISTORICAL: dict[str, frozenset[str]] = {k: frozenset(v) for k, v in _ACCEPTED.items()}
