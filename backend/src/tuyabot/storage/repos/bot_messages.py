@@ -31,6 +31,7 @@ SEED: dict[str, str] = {
     ),
     "account.info": "🪪 *Informasi Akun Anda*\n`User ID: {uid}`\nRole: {role}",
     "help.header": "📖 *Bantuan*",
+    "help.none": "Belum ada perangkat yang bisa Anda akses. Minta admin memberi akses.",
     "help.text": "Perintah: /status /devices /on <nama> /off <nama>",
     "users.header": "👥 *User Telegram*",
     "devices.header": "📱 *Perangkat*",
@@ -54,7 +55,6 @@ SEED: dict[str, str] = {
     "control.pending": "⏳ Mengirim perintah…",
     "control.ok_on": "✅ {device} berhasil dinyalakan",
     "control.ok_off": "✅ {device} berhasil dimatikan",
-    "control.noop": "ℹ️ Sudah Menyala (tidak ada perubahan)",
     "control.fail": "❌ Gagal {action} {device} — {message}",
     "control.offline": (
         "❌ *{device} tidak terhubung*\n\n"
@@ -89,6 +89,11 @@ SEED: dict[str, str] = {
         "Telah *dinonaktifkan secara otomatis* oleh sistem.\n"
         "📌 *Keterangan*: {reason}\n"
         "⏰ *Waktu*     : `{timestamp}`"
+    ),
+    "notify.watchdog_failed": (
+        "\u26a0\ufe0f *{device} gagal dimatikan otomatis*\n\n"
+        "Sistem mencoba mematikan perangkat karena: {reason}.\n\n"
+        "Perangkat *mungkin masih menyala*. Periksa koneksi lalu matikan manual."
     ),
     "notify.device_offline": "⚪ {device}: offline",
 }

@@ -151,8 +151,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         ]
     if bot_auth.can(role_id, "view_logs"):
         lines += ["/logs — aktivitas terakhir"]
-    if len(lines) == 4:
-        # Nothing beyond the basics is available to this role.
+    if not bot_auth.allowed_devices(role_id):
+        # No device is visible, so do not advertise device commands.
+        lines.append(_msg("help.none"))
+    elif len(lines) == 4:
+        # Devices exist but no extra command applies beyond the base list.
         lines.append(_msg("help.text"))
     await _reply(update, "\n".join(lines))
 
@@ -277,18 +280,16 @@ async def _toggle(update: Update, context: ContextTypes.DEFAULT_TYPE, on: bool) 
         message=str(result.get("message", "")),
     )
     if result.get("success"):
-        if result.get("ack") == "null" and result.get("unchanged"):
-            await _reply(update, _msg("control.noop", device=device["label"]))
-        else:
-            key = "control.ok_on" if on else "control.ok_off"
-            await _reply(update, _msg(key, device=device["label"]))
+        key = "control.ok_on" if on else "control.ok_off"
+        await _reply(update, _msg(key, device=device["label"]))
     else:
+        # The controller says whether the device was unreachable; guessing from
+        # the message text mislabels a DP error as a network one and vice versa.
+        key = "control.offline" if result.get("unreachable") else "control.fail"
         await _reply(
             update,
             _msg(
-                "control.offline"
-                if "tidak" in str(result.get("message", "")).lower()
-                else "control.fail",
+                key,
                 action="menyalakan" if on else "mematikan",
                 device=device["label"],
                 message=result.get("message", "perangkat tidak merespons"),
@@ -426,13 +427,34 @@ async def logs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await _reply(update, "\n".join(lines))
 
 
+# Every callback_data value the keyboard can emit. Kept beside the dispatcher so
+# a button with no branch is a test failure, not a dead tap.
+CALLBACK_COMMANDS = {"whoami": whoami, "help": help_command, "devices": devices_command,
+                     "users": users_command}
+
+
+def handled_callbacks() -> set[str]:
+    """Callback data values the dispatcher understands (used by tests)."""
+    return set(CALLBACK_COMMANDS) | {"on:", "off:"}
+
+
 async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None:
         return
     await query.answer()
-    if query.data == "devices":
-        await devices_command(update, context)
+    data = query.data or ""
+
+    if data in CALLBACK_COMMANDS:
+        await CALLBACK_COMMANDS[data](update, context)
+        return
+
+    # on:<name> / off:<name> — the per-device buttons.
+    for prefix, flag in (("on:", True), ("off:", False)):
+        if data.startswith(prefix):
+            context.args = [data[len(prefix):]]
+            await _toggle(update, context, flag)
+            return
 
 
 def register(application) -> None:

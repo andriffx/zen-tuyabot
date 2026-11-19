@@ -115,7 +115,10 @@ class Watchdog:
                     return  # already off; nothing to watch
 
                 if elapsed >= max_minutes:
-                    await self._switch_off(device, f"melewati batas {max_minutes:.0f} menit")
+                    await self._switch_off(
+                        device, "max_time", f"melewati batas {max_minutes:.0f} menit",
+                        minutes=max_minutes, power=0.0,
+                    )
                     return
 
                 samples = []
@@ -127,7 +130,10 @@ class Watchdog:
                         await asyncio.sleep(max(0.01, delay))
 
                 if samples and max(samples) < idle_watt:
-                    await self._switch_off(device, f"idle di bawah {idle_watt:.0f}W")
+                    await self._switch_off(
+                        device, "idle", f"idle di bawah {idle_watt:.0f}W",
+                        minutes=max_minutes, power=max(samples),
+                    )
                     return
         except asyncio.CancelledError:
             raise
@@ -136,7 +142,15 @@ class Watchdog:
         finally:
             self._state.pop(device["id"], None)
 
-    async def _switch_off(self, device: dict[str, Any], reason: str) -> None:
+    async def _switch_off(
+        self,
+        device: dict[str, Any],
+        kind: str,
+        reason: str,
+        *,
+        minutes: float = 0.0,
+        power: float = 0.0,
+    ) -> None:
         result = await service.run_tuya(controller.controller.set_switch, device, False)
         state_cache.cache.invalidate(device["name"])
 
@@ -158,9 +172,17 @@ class Watchdog:
             details={"reason": reason, "success": bool(result.get("success"))},
         )
         logger.warning("[WATCHDOG] %s dimatikan otomatis: %s", device["name"], reason)
-        await self._notify(device, reason, bool(result.get("success")))
+        await self._notify(device, kind, reason, bool(result.get("success")), minutes, power)
 
-    async def _notify(self, device: dict[str, Any], reason: str, ok: bool) -> None:
+    async def _notify(
+        self,
+        device: dict[str, Any],
+        kind: str,
+        reason: str,
+        ok: bool,
+        minutes: float,
+        power: float,
+    ) -> None:
         """Tell the user who switched it on, and the admins, what happened.
 
         Text comes from bot_messages so an operator can rewrite it. A failed
@@ -171,15 +193,18 @@ class Watchdog:
 
         state = self._state.get(device["id"], {})
         user_id = state.get("user_id")
-        reason_key = "notify.watchdog_off_idle" if reason == "idle" else "notify.watchdog_off_user"
+        reason_key = "notify.watchdog_off_idle" if kind == "idle" else "notify.watchdog_off_user"
         context = {
             "device": device["label"],
-            "minutes": int(float(self._setting(device["id"], "watchdog.max_minutes"))),
-            "power": 0.0,
-            "reason": reason,
+            "minutes": int(minutes),
+            "power": power,
+            "reason": reason if ok else f"{reason} (perintah gagal)",
         }
         if not ok:
-            context["reason"] = f"{reason} (perintah gagal)"
+            # The user template says "dinonaktifkan secara otomatis"; that would
+            # be a lie when the switch-off failed, so say so instead.
+            context["outcome"] = "gagal dimatikan otomatis"
+            reason_key = "notify.watchdog_failed"
 
         if user_id:
             await manager.send(user_id, bot_messages.render(reason_key, **context))

@@ -91,7 +91,8 @@ class TuyaController:
             except Exception as exc:  # network errors, bad local key, timeouts
                 logger.warning("[TUYA] %s gagal: %s", device.get("name"), exc)
                 self.forget(device["id"])
-                return {"success": False, "message": str(exc)}
+                # A raised socket/timeout error means the device did not answer.
+                return {"success": False, "message": str(exc), "unreachable": True}
 
     def status(self, device: dict) -> dict[str, Any]:
         def action(client):
@@ -143,13 +144,16 @@ class TuyaController:
                 return {"success": False, "message": f"balasan tak dikenal: {raw!r}"}
             if raw.get("Error") or raw.get("Err"):
                 message = raw.get("Error") or raw.get("Err")
+                unreachable = str(message).lower() in {
+                    "network error", "device not found", "connect failed",
+                } or "network" in str(message).lower()
                 logger.warning(
                     "[TUYA] %s menolak perintah: %s (%s)",
                     device.get("name"),
                     message,
                     _describe_target(device),
                 )
-                return {"success": False, "message": str(message)}
+                return {"success": False, "message": str(message), "unreachable": unreachable}
             return {"success": True}
 
         return self._call(device, action)

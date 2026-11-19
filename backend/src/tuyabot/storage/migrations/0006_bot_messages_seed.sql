@@ -23,6 +23,7 @@ Role: {role}'),
     ('users.header', '👥 *User Telegram*'),
     ('devices.header', '📱 *Perangkat*'),
     ('status.header', '📊 *Status*'),
+    ('help.none', 'Belum ada perangkat yang bisa Anda akses. Minta admin memberi akses.'),
     ('help.text', 'Perintah: /status /devices /on <nama> /off <nama>'),
     ('device.none', 'Belum ada perangkat.'),
     ('device.not_found', 'Perangkat ''{name}'' tidak ditemukan.'),
@@ -41,7 +42,6 @@ Anda tidak memiliki izin untuk {action}.'),
     ('control.pending', '⏳ Mengirim perintah…'),
     ('control.ok_on', '✅ {device} berhasil dinyalakan'),
     ('control.ok_off', '✅ {device} berhasil dimatikan'),
-    ('control.noop', 'ℹ️ Sudah Menyala (tidak ada perubahan)'),
     ('control.fail', '❌ Gagal {action} {device} — {message}'),
     ('control.offline', '❌ *{device} tidak terhubung*
 
@@ -73,4 +73,14 @@ Pompa air yang sebelumnya diaktifkan oleh:
 Telah *dinonaktifkan secara otomatis* oleh sistem.
 📌 *Keterangan*: {reason}
 ⏰ *Waktu*     : `{timestamp}`'),
+    ('notify.watchdog_failed', '⚠️ *{device} gagal dimatikan otomatis*
+
+Sistem mencoba mematikan perangkat karena: {reason}.
+
+Perangkat *mungkin masih menyala*. Periksa koneksi lalu matikan manual.'),
+    ('notify.watchdog_failed', '⚠️ *{device} gagal dimatikan otomatis*
+
+Sistem mencoba mematikan perangkat karena: {reason}.
+
+Perangkat *mungkin masih menyala*. Periksa koneksi lalu matikan manual.'),
     ('notify.device_offline', '⚪ {device}: offline');
