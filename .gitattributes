@@ -1,0 +1,11 @@
+# Migrations are hashed by the runner. Git's autocrlf would rewrite them on a
+# Windows clone and change the checksum, so they are pinned to LF everywhere:
+# the server is Linux, and a database created on either platform must start on
+# both. The checksum also normalises line endings as a second guard.
+*.sql text eol=lf
+
+# Anything that is compared byte for byte, or executed on the server.
+*.sh text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf
+entrypoint.sh text eol=lf

@@ -29,7 +29,15 @@ def available() -> list[tuple[int, str, Path]]:
 
 
 def _checksum(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Hash the text with normalised line endings.
+
+    Git's autocrlf rewrites checked-out files, so the same migration has CRLF
+    on a Windows clone and LF on Linux. Hashing raw bytes would give the same
+    file two checksums, and a database created on one platform would refuse to
+    start on the other with "checksum migrasi ... berubah".
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _ensure_table(cursor) -> None:

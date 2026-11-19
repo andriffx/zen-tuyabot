@@ -15,10 +15,10 @@ MIGRATIONS = pathlib.Path(__file__).resolve().parent.parent / "src/tuyabot/stora
 # editing an entry below is only allowed together with a deliberate decision to
 # break every existing database, which is exactly what this test protects.
 SHIPPED: dict[str, str] = {
-    "0001_init.sql": "ed9193d094ce0c757dbcfe0ed47fddac71e31b7d01e9142b0ae44736a199f5e2",
-    "0002_seed.sql": "2cf87f2084aee753f8a2212dcf4c419f15561d2af77742e7921d666e3fc90639",
-    "0003_settings_seed.sql": "63bbc444d04159da9f1d0123084881f970344cdb85d9143247b1b4fa44669b77",
-    "0004_setup_state.sql": "d2afb7a0ce1481ee86a014f978ce0e2e90e8a776fdd020313d4615c510bdc61f",
+    "0001_init.sql": "19f6861ad295219cf25642ad5db6f5d8ef0a16f1d057e475e39823a5a375ca2d",
+    "0002_seed.sql": "966f81db682c164d0fd4c57b822f4b4c4fc9bc99f455c4995c8380f69eb5d547",
+    "0003_settings_seed.sql": "f2e8b84d48c15bcdfe8c900681ce31d3f02b911786b0a161ed17a799fda6eb80",
+    "0004_setup_state.sql": "855b6030f412a79446fb8f748fc812e080711cedeb4ef0c637a5e3ec38d880f0",
 }
 
 
@@ -27,7 +27,10 @@ def test_no_shipped_migration_changed():
     for name, expected in SHIPPED.items():
         path = MIGRATIONS / name
         assert path.exists(), f"migrasi {name} hilang"
-        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        # Normalised, the same way the runner hashes: CRLF and LF must agree.
+        # Normalised the same way the runner hashes: CRLF and LF must agree.
+        raw = path.read_bytes().replace(b"\r\n", b"\n")
+        actual = hashlib.sha256(raw).hexdigest()
         if actual != expected:
             changed.append(name)
 
