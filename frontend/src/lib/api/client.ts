@@ -1,6 +1,6 @@
 import { ApiError, toApiError } from './errors';
 
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export type ApiInit = {
 	method?: HttpMethod;
@@ -121,6 +121,10 @@ export function get<T>(path: string, init: Omit<ApiInit, 'method'> = {}): Promis
 
 export function post<T>(path: string, body?: unknown, init: Omit<ApiInit, 'method' | 'body'> = {}): Promise<T> {
 	return api<T>(path, { ...init, method: 'POST', body });
+}
+
+export function put<T>(path: string, body?: unknown, init: Omit<ApiInit, 'method' | 'body'> = {}): Promise<T> {
+	return api<T>(path, { ...init, method: 'PUT', body });
 }
 
 export function patch<T>(path: string, body?: unknown, init: Omit<ApiInit, 'method' | 'body'> = {}): Promise<T> {
