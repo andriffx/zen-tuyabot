@@ -69,6 +69,12 @@ def can_view(principal, device: dict[str, Any]) -> bool:
         return False
     from ..access import bot_auth
 
+    # Whoever manages devices sees all of them. Without this, an operator who
+    # can edit or delete a device cannot see the one they just created, and
+    # after migration nobody would see anything until access was granted one
+    # device at a time — including from a UI that needs to list them first.
+    if bot_auth.can(principal.role_id, "manage_devices"):
+        return True
     return bot_auth.can_device(principal.role_id, device["id"], "view")
 
 
@@ -82,6 +88,8 @@ def can_control(principal, device: dict[str, Any], action: str | None = None) ->
         return False
     from ..access import bot_auth
 
+    if bot_auth.can(principal.role_id, "manage_devices"):
+        return True
     if action in ("on", "off"):
         return bot_auth.can_device(principal.role_id, device["id"], action)
     return bot_auth.can_device(principal.role_id, device["id"], "on") or bot_auth.can_device(

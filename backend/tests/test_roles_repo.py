@@ -25,27 +25,29 @@ def test_superadmin_is_protected_and_has_all_permissions(ready):
     assert set(superadmin["permissions"]) == set(permissions.CATALOG)
 
 
-def test_viewer_cannot_control_devices(ready):
+def test_viewer_role_has_only_read_permissions(ready):
+    """Device control is no longer a role permission: it lives in
+    role_device_access, so this role holds the read-side bot keys only."""
     viewer = roles.get_by_slug("viewer")
-    assert viewer["permissions"] == ["devices.view", "logs.view"]
+    assert sorted(viewer["permissions"]) == ["monitoring", "view_logs"]
 
 
-def test_admin_lacks_role_management(ready):
+def test_admin_lacks_user_management(ready):
     admin = roles.get_by_slug("admin")
-    assert "roles.manage" not in admin["permissions"]
-    assert "devices.manage" in admin["permissions"]
+    assert "manage_users" not in admin["permissions"]
+    assert "manage_devices" in admin["permissions"]
 
 
 def test_create_update_delete(ready):
-    role_id = roles.create("tamu", "Tamu", "hanya lihat", ["devices.view"])
+    role_id = roles.create("tamu", "Tamu", "hanya lihat", ["monitoring"])
     created = roles.get(role_id)
     assert created["slug"] == "tamu"
-    assert created["permissions"] == ["devices.view"]
+    assert created["permissions"] == ["monitoring"]
 
-    roles.update(role_id, name="Tamu Rumah", permissions=["devices.view", "logs.view"])
+    roles.update(role_id, name="Tamu Rumah", permissions=["monitoring", "view_logs"])
     updated = roles.get(role_id)
     assert updated["name"] == "Tamu Rumah"
-    assert updated["permissions"] == ["devices.view", "logs.view"]
+    assert updated["permissions"] == ["monitoring", "view_logs"]
 
     roles.delete(role_id)
     assert roles.get(role_id) is None

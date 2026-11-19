@@ -42,6 +42,8 @@ def fake_tuya(monkeypatch):
 
 @pytest.fixture()
 def device(ready_db):
+    from tuyabot.storage.repos import role_devices
+
     viewer = roles.get_by_slug("viewer")["id"]
     device_id = devices_repo.create(
         {
@@ -52,8 +54,12 @@ def device(ready_db):
             "ip": "10.0.0.5",
             "type": "plug",
             "features": {"power_logging": True},
-            "access_roles": [viewer],
         }
+    )
+    # Access is per role and per device now; the deprecated access_roles column
+    # no longer grants anything.
+    role_devices.set_for_role(
+        viewer, [{"device_id": device_id, "can_view": True, "can_on": True, "can_off": True}]
     )
     registry.reload()
     yield device_id
@@ -83,9 +89,21 @@ def test_viewer_sees_device(client, login_as, device, fake_tuya):
     assert body["online"] is True
 
 
-def test_control_requires_permission(client, login_as, device, fake_tuya):
-    login_as("viewer")  # can view, cannot control
-    assert client.post(f"/api/devices/{device}/on").status_code == 403
+def test_control_requires_permission(client, login_as, ready_db, fake_tuya):
+    from tuyabot.storage.repos import role_devices
+
+    # A device whose only access row is view-only.
+    device_id = devices_repo.create(
+        {"name": "air2", "label": "Air 2", "tuya_id": "dev-2", "local_key": "k", "type": "plug"}
+    )
+    role_devices.set_for_role(
+        roles.get_by_slug("viewer")["id"],
+        [{"device_id": device_id, "can_view": True, "can_on": False, "can_off": False}],
+    )
+    registry.reload()
+
+    login_as("viewer")
+    assert client.post(f"/api/devices/{device_id}/on").status_code == 403
 
 
 def test_control_invisible_device_is_404(client, login_as, device, fake_tuya):
@@ -192,9 +210,8 @@ def test_stream_snapshot_does_not_call_tuya(client, login_as, device, fake_tuya)
     assert auth_impl is not None
 
 
-def test_scan_requires_permission(client, login_as):
-    login_as("operator")
-    assert client.post("/api/devices/scan").status_code == 403
+def test_scan_requires_a_session(client):
+    assert client.post("/api/devices/scan").status_code == 401
 
 
 def test_logs_require_logs_view(client, login_as, device):

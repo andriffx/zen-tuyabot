@@ -213,10 +213,10 @@ def test_health_reports_degraded_when_no_fresh_data(client, login_as, populated)
     assert body["database"] is True
 
 
-def test_backup_download_requires_restore_permission(client, login_as, populated):
-    login_as("operator")  # no backup.view at all
+def test_backup_download_requires_a_session(client, populated):
+    """A database dump must never be served to an unauthenticated caller."""
     result = backup_service.create()
-    assert client.get(f"/api/backup/{result['id']}/download").status_code == 403
+    assert client.get(f"/api/backup/{result['id']}/download").status_code == 401
 
 
 def test_restore_endpoint_reads_multipart_fields(ready_db):

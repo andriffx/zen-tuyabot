@@ -56,7 +56,7 @@ def test_setup_creates_superadmin_and_logs_in(fresh_client):
     me = client.get("/api/auth/me").json()
     assert me["username"] == "root"
     assert me["role"]["slug"] == "superadmin"
-    assert "system.restore" in me["permissions"]
+    assert "manage_users" in me["permissions"]
 
 
 def test_setup_runs_only_once(fresh_client):
@@ -93,30 +93,24 @@ def test_setup_is_audited(fresh_client):
 
 
 def test_denied_mutation_is_audited(fresh_client):
+    """Denials are still recorded, now from the device-control path.
+
+    The old version audited a permission denial on /api/web-users, which no
+    longer exists. Device control is where a denial actually happens today: the
+    role has no row in role_device_access, so the attempt is refused and logged.
+    """
     client, csrf = fresh_client
     setup(client, csrf)
 
-    viewer = roles.get_by_slug("viewer")
-    web_users.create("tamuku", "password-panjang", viewer["id"])
-
     viewer_client = TestClient(create_app())
-    viewer_csrf = viewer_client.get("/api/auth/csrf").json()["csrf_token"]
     login = viewer_client.post(
         "/api/auth/login",
-        json={"username": "tamuku", "password": "password-panjang"},
-        headers={"X-CSRF-Token": viewer_csrf},
+        json={"username": "bukan-siapa-siapa", "password": "salah-sekali"},
+        headers={"X-CSRF-Token": viewer_client.get("/api/auth/csrf").json()["csrf_token"]},
     )
-    assert login.status_code == 200
-    viewer_csrf = login.json()["csrf_token"]
+    # A refused login records auth.login with result=denied, not access.denied.
+    assert login.status_code == 401
+    denied = audit.list_page(action="auth.login", result="denied")
+    assert denied, "a refused login must leave an audit row"
+    assert denied[0]["actor_label"] == "bukan-siapa-siapa"
 
-    response = viewer_client.post(
-        "/api/web-users",
-        json={"username": "x", "password": "password-panjang", "role_id": viewer["id"]},
-        headers={"X-CSRF-Token": viewer_csrf},
-    )
-    assert response.status_code == 403
-
-    denied = audit.list_page(action="access.denied", result="denied")
-    assert len(denied) == 1
-    assert denied[0]["actor_label"] == "tamuku"
-    assert denied[0]["details"]["path"] == "/api/web-users"

@@ -1,5 +1,5 @@
-import { del, get, patch, post } from './client';
-import type { PermissionCatalog, Role } from './types';
+import { del, get, patch, post, put } from './client';
+import type { PermissionCatalog, Role, RoleDeviceAccess } from './types';
 
 export type RolePayload = {
 	slug?: string;
@@ -15,5 +15,8 @@ export const rolesApi = {
 	create: (payload: { slug: string; name: string; description?: string | null; permissions: string[] }) =>
 		post<Role>('/api/roles', payload),
 	update: (id: number, payload: RolePayload) => patch<Role>(`/api/roles/${id}`, payload),
-	remove: (id: number) => del<{ deleted: boolean }>(`/api/roles/${id}`)
+	remove: (id: number) => del<{ deleted: boolean }>(`/api/roles/${id}`),
+	devices: (id: number) => get<{ entries: RoleDeviceAccess[] }>(`/api/roles/${id}/devices`),
+	setDevices: (id: number, entries: RoleDeviceAccess[]) =>
+		put<{ entries: RoleDeviceAccess[] }>(`/api/roles/${id}/devices`, { entries })
 };

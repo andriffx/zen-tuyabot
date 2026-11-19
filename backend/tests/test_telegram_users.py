@@ -43,8 +43,8 @@ def test_registered_telegram_user_gets_role_permissions(ready_db):
     assert principal is not None
     assert principal.actor_kind == "telegram"
     assert principal.role_slug == "operator"
-    assert "devices.control" in principal.permissions
-    assert "users.manage" not in principal.permissions
+    assert "monitoring" in principal.permissions
+    assert "manage_users" not in principal.permissions
 
 
 def test_inactive_telegram_user_resolves_to_public(ready_db):

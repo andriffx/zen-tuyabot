@@ -13,6 +13,7 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { ArrowLeft, Save } from '@lucide/svelte';
+	import { devicesApi } from '#lib/api';
 
 	const roleId = $derived(Number(page.params.id));
 
@@ -23,6 +24,12 @@
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+
+	// Per-device access: one row per device, three independent rights.
+	let devices = $state<{ id: number; label: string }[]>([]);
+	let access = $state<Record<number, { can_view: boolean; can_on: boolean; can_off: boolean }>>({});
+	let savedAccess = $state('');
+	let savingDevices = $state(false);
 
 	const canManage = $derived(auth.can('roles.manage'));
 	const groups = $derived(catalog ? permissions.groupCatalog(catalog) : []);
@@ -40,9 +47,26 @@
 		loading = true;
 		error = null;
 		try {
-			const [roleList, catalogData] = await Promise.all([rolesApi.list(), rolesApi.catalog()]);
+			const [roleList, catalogData, deviceList, accessData] = await Promise.all([
+				rolesApi.list(),
+				rolesApi.catalog(),
+				devicesApi.list(),
+				rolesApi.devices(roleId)
+			]);
 			role = roleList.roles.find((entry) => entry.id === roleId) ?? null;
 			catalog = catalogData;
+			devices = deviceList.devices.map((device) => ({ id: device.id, label: device.label }));
+			access = Object.fromEntries(
+				devices.map((device) => [
+					device.id,
+					accessData.entries.find((entry) => entry.device_id === device.id) ?? {
+						can_view: false,
+						can_on: false,
+						can_off: false
+					}
+				])
+			);
+			savedAccess = JSON.stringify(access);
 			selected = role ? [...role.permissions] : [];
 			saved = [...selected];
 			if (!role) error = 'Role tidak ditemukan.';
@@ -50,6 +74,28 @@
 			error = failure instanceof ApiError ? failure.detail : 'Gagal memuat role.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	const accessChanged = $derived(JSON.stringify(access) !== savedAccess);
+
+	async function saveDevices() {
+		if (!role) return;
+		savingDevices = true;
+		try {
+			const entries = devices
+				.filter((device) => {
+					const row = access[device.id];
+					return row && (row.can_view || row.can_on || row.can_off);
+				})
+				.map((device) => ({ device_id: device.id, ...access[device.id] }));
+			await rolesApi.setDevices(role.id, entries);
+			savedAccess = JSON.stringify(access);
+			toast.success('Akses perangkat disimpan');
+		} catch (failure) {
+			toast.error(failure instanceof ApiError ? failure.detail : 'Gagal menyimpan akses');
+		} finally {
+			savingDevices = false;
 		}
 	}
 
@@ -125,6 +171,61 @@
 							: next;
 					}}
 				/>
+			</CardContent>
+		</Card>
+
+		<Card>
+			<CardHeader class="flex flex-row items-center justify-between gap-2">
+				<CardTitle class="text-base">Akses perangkat</CardTitle>
+				{#if canManage}
+					<Button size="sm" onclick={saveDevices} disabled={!accessChanged || savingDevices}>
+						<Save class="size-4" />
+						{savingDevices ? 'Menyimpan…' : 'Simpan akses'}
+					</Button>
+				{/if}
+			</CardHeader>
+			<CardContent>
+				{#if devices.length === 0}
+					<p class="text-sm text-muted-foreground">Belum ada perangkat.</p>
+				{:else}
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b text-left text-xs text-muted-foreground">
+								<th class="pb-2">Perangkat</th>
+								<th class="pb-2 text-center">Lihat</th>
+								<th class="pb-2 text-center">Nyalakan</th>
+								<th class="pb-2 text-center">Matikan</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each devices as device (device.id)}
+								<tr class="border-b last:border-0">
+									<td class="py-2">{device.label}</td>
+									{#each ['can_view', 'can_on', 'can_off'] as right (right)}
+										<td class="py-2 text-center">
+											<input
+												type="checkbox"
+												class="size-4"
+												checked={access[device.id]?.[right as 'can_view']}
+												disabled={!canManage}
+												onchange={(event) => {
+													access[device.id] = {
+														...access[device.id],
+														[right]: (event.currentTarget as HTMLInputElement).checked
+													};
+												}}
+											/>
+										</td>
+									{/each}
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+					<p class="mt-2 text-xs text-muted-foreground">
+						Tanpa centang, perangkat tidak muncul untuk role ini. Nyalakan dan Matikan bisa
+						dipisah: role boleh menyalakan tanpa boleh mematikan.
+					</p>
+				{/if}
 			</CardContent>
 		</Card>
 

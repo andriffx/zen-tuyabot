@@ -17,7 +17,7 @@ export { authApi, setupApi } from './auth';
 export { devicesApi } from './devices';
 export { logsApi } from './logs';
 export { settingsApi } from './settings';
-export { telegramUsersApi, usersApi } from './users';
+export { telegramUsersApi } from './users';
 export { rolesApi } from './roles';
 export { botsApi } from './bots';
 export { backupApi } from './backup';

@@ -6,8 +6,7 @@ import {
 	logsApi,
 	rolesApi,
 	systemApi,
-	telegramUsersApi,
-	usersApi
+	telegramUsersApi
 } from './index';
 
 const client = vi.hoisted(() => ({
@@ -30,21 +29,6 @@ beforeEach(() => {
 });
 
 describe('domain modules hit the documented endpoints', () => {
-	it('web users', async () => {
-		await usersApi.create({ username: 'a', password: 'password-panjang', role_id: 1 });
-		expect(client.post).toHaveBeenCalledWith('/api/web-users', {
-			username: 'a',
-			password: 'password-panjang',
-			role_id: 1
-		});
-
-		await usersApi.update(3, { is_active: false });
-		expect(client.patch).toHaveBeenCalledWith('/api/web-users/3', { is_active: false });
-
-		await usersApi.remove(3);
-		expect(client.del).toHaveBeenCalledWith('/api/web-users/3');
-	});
-
 	it('telegram users use their own path and integer id', async () => {
 		await telegramUsersApi.remove(555);
 		expect(client.del).toHaveBeenCalledWith('/api/telegram-users/555');

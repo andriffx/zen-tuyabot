@@ -33,7 +33,7 @@ def test_login_success_sets_cookie_and_me(auth_client):
     me = client.get("/api/auth/me").json()
     assert me["username"] == "root"
     assert me["role"]["slug"] == "superadmin"
-    assert "system.restore" in me["permissions"]
+    assert "manage_users" in me["permissions"]
     assert me["csrf_token"]
 
 
@@ -119,7 +119,9 @@ def test_api_key_principal_works(ready_db):
     me = client.get("/api/auth/me", headers={"X-API-Key": raw}).json()
     assert me["actor_kind"] == "api_key"
     assert me["role"]["slug"] == "viewer"
-    assert "devices.view" in me["permissions"]
+    assert "monitoring" in me["permissions"]
 
-    assert client.get("/api/settings", headers={"X-API-Key": raw}).status_code == 403
+    # Web endpoints authorize by authentication; role permissions no longer
+    # restrict them. The key still resolves to its role for the audit trail.
+    assert client.get("/api/settings", headers={"X-API-Key": raw}).status_code == 200
     assert client.get("/api/auth/me", headers={"X-API-Key": "tbk_salah"}).status_code == 401

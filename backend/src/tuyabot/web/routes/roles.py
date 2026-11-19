@@ -11,7 +11,8 @@ from ...access import permissions as perm_catalog
 from ...access import roles as roles_module
 from ...access import sessions
 from ...storage.repos import api_keys as api_keys_repo
-from ...storage.repos import audit, roles
+from ...storage.repos import audit, role_devices, roles
+from ...storage.repos import devices as devices_repo
 from ..deps import Principal, request_id, require
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])
@@ -182,3 +183,58 @@ async def delete_role(
         request_id=request_id(request),
     )
     return {"deleted": True}
+
+
+@router.get("/{role_id}/devices")
+async def list_role_devices(
+    role_id: int,
+    principal: Principal = Depends(require("roles.manage")),
+) -> dict[str, Any]:
+    if roles.get(role_id) is None:
+        raise HTTPException(status_code=404, detail="Role tidak ditemukan")
+    return {"entries": role_devices.get_for_role(role_id)}
+
+
+@router.put("/{role_id}/devices")
+async def set_role_devices(
+    role_id: int,
+    payload: dict[str, Any],
+    request: Request,
+    principal: Principal = Depends(require("roles.manage")),
+) -> dict[str, Any]:
+    """Replace the role's whole matrix.
+
+    Replace, not merge: the editor sends every row it shows, so a device
+    removed from the table must stop being reachable.
+    """
+    if roles.get(role_id) is None:
+        raise HTTPException(status_code=404, detail="Role tidak ditemukan")
+
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        raise HTTPException(status_code=422, detail={"errors": [{"key": "entries", "message": "entries harus array"}]})
+
+    known = {device["id"] for device in devices_repo.list_all()}
+    normalized = []
+    for entry in entries:
+        device_id = entry.get("device_id")
+        if device_id not in known:
+            raise HTTPException(
+                status_code=422,
+                detail={"errors": [{"key": "device_id", "message": f"Perangkat {device_id} tidak ada"}]},
+            )
+        normalized.append({
+            "device_id": device_id,
+            "can_view": bool(entry.get("can_view")),
+            "can_on": bool(entry.get("can_on")),
+            "can_off": bool(entry.get("can_off")),
+        })
+
+    role_devices.set_for_role(role_id, normalized)
+    audit.write(
+        principal.actor_kind, principal.actor_id, principal.label, "roles.devices",
+        target_kind="role", target_id=role_id, details={"devices": len(normalized)},
+        ip=request.client.host if request.client else None,
+        request_id=request_id(request),
+    )
+    return {"entries": role_devices.get_for_role(role_id)}

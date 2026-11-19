@@ -283,3 +283,10 @@ export type SessionRow = {
 	revoked_at: string | null;
 	is_current: boolean;
 };
+
+export type RoleDeviceAccess = {
+	device_id: number;
+	can_view: boolean;
+	can_on: boolean;
+	can_off: boolean;
+};

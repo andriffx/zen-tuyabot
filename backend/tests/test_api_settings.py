@@ -13,14 +13,10 @@ def test_read_requires_settings_view(client, login_as):
     assert "telegram.bot_token" not in body["values"]
 
 
-def test_viewer_without_settings_view_is_forbidden(client, login_as):
-    login_as("operator")
-    assert client.get("/api/settings").status_code == 403
-
-
-def test_patch_requires_settings_edit(client, login_as):
-    login_as("operator")
-    assert client.patch("/api/settings", json={"values": {"ui.title": "X"}}).status_code == 403
+def test_any_authenticated_account_can_read_settings(client, login_as):
+    """The web has one account; authentication is the authorization."""
+    login_as("superadmin")
+    assert client.get("/api/settings").status_code == 200
 
 
 def test_patch_writes_and_audits(client, login_as):
