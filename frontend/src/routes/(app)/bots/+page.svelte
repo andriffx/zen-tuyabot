@@ -36,7 +36,7 @@
 	let saving = $state(false);
 	let formError = $state<string | null>(null);
 
-	const canManage = $derived(auth.can('bots.manage'));
+	const canManage = $derived(auth.can('manage_devices'));
 
 	async function load() {
 		loading = true;

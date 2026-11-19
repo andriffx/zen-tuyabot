@@ -22,12 +22,12 @@ def _actor_details(principal: Principal) -> dict[str, Any]:
 
 
 @router.get("")
-async def read_settings(principal: Principal = Depends(require("settings.view"))) -> dict[str, Any]:
+async def read_settings(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     return {"values": service.all_values(), "schema": service.schema()}
 
 
 @router.get("/schema")
-async def read_schema(principal: Principal = Depends(require("settings.view"))) -> dict[str, Any]:
+async def read_schema(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     return {"schema": service.schema()}
 
 
@@ -35,7 +35,7 @@ async def read_schema(principal: Principal = Depends(require("settings.view"))) 
 async def patch_settings(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("settings.edit")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     values = payload.get("values")
     if not isinstance(values, dict):

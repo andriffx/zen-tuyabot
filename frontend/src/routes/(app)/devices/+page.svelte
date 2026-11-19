@@ -31,9 +31,9 @@
 	let pendingAction = $state<{ device: DeviceView; on: boolean } | null>(null);
 
 	const views = $derived(devices.mergeStream(list, stream.devices));
-	const canManage = $derived(auth.can('devices.manage'));
-	const canScan = $derived(auth.can('devices.scan'));
-	const canControl = $derived(auth.can('devices.control'));
+	const canManage = $derived(auth.can('manage_devices'));
+	const canScan = $derived(auth.can('manage_devices'));
+	const canControl = $derived(auth.can('monitoring'));
 
 	async function load() {
 		loading = true;
@@ -42,7 +42,7 @@
 			const [deviceList, templateList] = await Promise.all([devicesApi.list(), devicesApi.templates()]);
 			list = deviceList.devices;
 			templates = templateList;
-			if (auth.can('users.view')) {
+			if (auth.can('manage_users')) {
 				roles = (await rolesApi.list()).roles;
 			}
 		} catch (error) {

@@ -1,29 +1,10 @@
 import type { PermissionCatalog } from '#lib/api/types';
 
 const LABELS: Record<string, string> = {
-	'devices.view': 'Lihat perangkat',
-	'devices.control': 'Kontrol perangkat',
-	'devices.manage': 'Kelola perangkat',
-	'devices.scan': 'Scan jaringan & test koneksi',
-	'logs.view': 'Lihat log',
-	'logs.cleanup': 'Bersihkan log',
-	'settings.view': 'Lihat settings',
-	'settings.edit': 'Ubah settings',
-	'users.view': 'Lihat akun web',
-	'users.manage': 'Kelola akun web',
-	'telegram_users.view': 'Lihat user Telegram',
-	'telegram_users.manage': 'Kelola user Telegram',
-	'roles.manage': 'Kelola role & permission',
-	'bots.view': 'Lihat bot',
-	'bots.manage': 'Kelola bot',
-	'backup.view': 'Lihat backup',
-	'backup.create': 'Buat backup',
-	'backup.restore': 'Unduh backup',
-	'apikeys.manage': 'Kelola API key',
-	'system.view': 'Lihat sistem',
-	'audit.view': 'Lihat audit log',
-	'system.maintenance': 'Aktifkan maintenance',
-	'system.restore': 'Restore database'
+	monitoring: 'Lihat status perangkat lewat bot',
+	manage_users: 'Kelola user Telegram & role',
+	manage_devices: 'Kelola perangkat, bot, backup, settings',
+	view_logs: 'Lihat log dari bot'
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -63,7 +44,7 @@ export const permissions = {
 	},
 
 	/** Permissions a protected (superadmin) role may never lose. */
-	PROTECTED_REQUIRED: ['roles.manage', 'users.manage', 'system.view'] as const,
+	PROTECTED_REQUIRED: ['manage_users'] as const,
 
 	isProtectedKey(key: string): boolean {
 		return (this.PROTECTED_REQUIRED as readonly string[]).includes(key);

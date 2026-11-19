@@ -28,8 +28,8 @@
 	let creating = $state(false);
 	let restoreOpen = $state(false);
 
-	const canCreate = $derived(auth.can('backup.create'));
-	const canRestore = $derived(auth.can('system.restore'));
+	const canCreate = $derived(auth.can('manage_devices'));
+	const canRestore = $derived(auth.can('manage_devices'));
 
 	async function load() {
 		loading = true;

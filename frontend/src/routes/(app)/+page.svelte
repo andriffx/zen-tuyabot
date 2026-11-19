@@ -160,19 +160,19 @@
 				<CardTitle class="text-base">Aksi cepat</CardTitle>
 			</CardHeader>
 			<CardContent class="flex flex-col gap-2">
-				{#if auth.can('devices.view')}
+				{#if auth.can('monitoring')}
 					<Button variant="outline" onclick={() => goto('/devices')}>Buka Devices</Button>
 				{/if}
-				{#if auth.can('backup.create')}
+				{#if auth.can('manage_devices')}
 					<Button variant="outline" onclick={() => goto('/backup')}>Kelola Backup</Button>
 				{/if}
-				{#if auth.can('settings.edit')}
+				{#if auth.can('manage_devices')}
 					<Button variant="outline" onclick={() => goto('/settings')}>Ubah Settings</Button>
 				{/if}
-				{#if auth.can('system.view')}
+				{#if auth.can('monitoring')}
 					<Button variant="outline" onclick={() => goto('/system')}>Lihat System</Button>
 				{/if}
-				{#if !auth.can('devices.view') && !auth.can('settings.edit') && !auth.can('system.view')}
+				{#if !auth.can('monitoring') && !auth.can('manage_devices') && !auth.can('monitoring')}
 					<p class="text-sm text-muted-foreground">Tidak ada aksi untuk role Anda.</p>
 				{/if}
 			</CardContent>

@@ -31,7 +31,7 @@
 	let savedAccess = $state('');
 	let savingDevices = $state(false);
 
-	const canManage = $derived(auth.can('roles.manage'));
+	const canManage = $derived(auth.can('manage_users'));
 	const groups = $derived(catalog ? permissions.groupCatalog(catalog) : []);
 	const editable = $derived(
 		catalog ? permissions.editable(catalog, [...(auth.me?.permissions ?? [])]) : []

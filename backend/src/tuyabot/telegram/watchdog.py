@@ -51,11 +51,14 @@ class Watchdog:
         """
         if not dps_module.has_feature(device, "watchdog"):
             return False
-        from ..access import bot_auth
-
         if role_id is None:
             return False
-        return not bot_auth.can_device(role_id, device["id"], "off")
+        # Reuse the same function the control paths use, so the two can never
+        # disagree: it already accounts for manage_devices and for the
+        # per-device row.
+        from ..devices import registry
+
+        return not registry.can_control(_RolePrincipal(role_id), device, "off")
 
     def arm(self, device: dict[str, Any]) -> None:
         from ..maintenance import service as maintenance_service
@@ -146,6 +149,30 @@ class Watchdog:
             details={"reason": reason, "success": bool(result.get("success"))},
         )
         logger.warning("[WATCHDOG] %s dimatikan otomatis: %s", device["name"], reason)
+
+
+def sync_after_control(dog: Watchdog, device: dict[str, Any], on: bool, role_id: int | None) -> None:
+    """Keep the watchdog in step with a switch command that just succeeded.
+
+    An off command always cancels: the pump is off, so there is nothing left to
+    auto-off, and a stale task would fire later for no reason. An on command
+    arms only when this role cannot switch it off; a role that can switch it off
+    cancels instead, so a watchdog armed by an earlier, less privileged actor
+    does not outlive the person who is now in control.
+    """
+    if not on:
+        dog.cancel(device["id"])
+    elif dog.should_arm(device, role_id):
+        dog.arm(device)
+    else:
+        dog.cancel(device["id"])
+
+
+class _RolePrincipal:
+    """Minimal principal for a permission check that needs only a role."""
+
+    def __init__(self, role_id: int) -> None:
+        self.role_id = role_id
 
 
 watchdog = Watchdog()

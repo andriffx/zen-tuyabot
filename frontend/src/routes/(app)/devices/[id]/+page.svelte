@@ -108,7 +108,7 @@
 				</p>
 			</div>
 			<div class="flex gap-2">
-				{#if auth.can('devices.scan')}
+				{#if auth.can('manage_devices')}
 					<Button variant="outline" onclick={runTest} disabled={testing}>
 						<FlaskConical class="size-4" />
 						{testing ? 'Menguji…' : 'Test koneksi'}
@@ -118,7 +118,7 @@
 						{diagnosing ? 'Mendiagnosa…' : 'Diagnosa jaringan'}
 					</Button>
 				{/if}
-				{#if auth.can('devices.manage')}
+				{#if auth.can('manage_devices')}
 					<Button variant="destructive" onclick={remove}>
 						<Trash2 class="size-4" />
 						Hapus

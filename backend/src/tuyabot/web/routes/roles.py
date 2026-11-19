@@ -46,12 +46,12 @@ def _guard_protected(role: dict, requested: list[str]) -> None:
 
 
 @router.get("")
-async def list_roles(principal: Principal = Depends(require("users.view"))) -> dict[str, Any]:
+async def list_roles(principal: Principal = Depends(require("manage_users"))) -> dict[str, Any]:
     return {"roles": roles.list_all()}
 
 
 @router.get("/permissions")
-async def permission_catalog(principal: Principal = Depends(require("users.view"))) -> dict[str, Any]:
+async def permission_catalog(principal: Principal = Depends(require("manage_users"))) -> dict[str, Any]:
     return perm_catalog.catalog_payload()
 
 
@@ -59,7 +59,7 @@ async def permission_catalog(principal: Principal = Depends(require("users.view"
 async def create_role(
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("roles.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     slug = str(payload.get("slug", "")).strip()
     if not SLUG_RE.match(slug):
@@ -93,7 +93,7 @@ async def update_role(
     role_id: int,
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("roles.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     role = roles.get(role_id)
     if role is None:
@@ -158,7 +158,7 @@ async def update_role(
 async def delete_role(
     role_id: int,
     request: Request,
-    principal: Principal = Depends(require("roles.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     role = roles.get(role_id)
     if role is None:
@@ -188,7 +188,7 @@ async def delete_role(
 @router.get("/{role_id}/devices")
 async def list_role_devices(
     role_id: int,
-    principal: Principal = Depends(require("roles.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     if roles.get(role_id) is None:
         raise HTTPException(status_code=404, detail="Role tidak ditemukan")
@@ -200,7 +200,7 @@ async def set_role_devices(
     role_id: int,
     payload: dict[str, Any],
     request: Request,
-    principal: Principal = Depends(require("roles.manage")),
+    principal: Principal = Depends(require("manage_users")),
 ) -> dict[str, Any]:
     """Replace the role's whole matrix.
 
@@ -215,6 +215,7 @@ async def set_role_devices(
         raise HTTPException(status_code=422, detail={"errors": [{"key": "entries", "message": "entries harus array"}]})
 
     known = {device["id"] for device in devices_repo.list_all()}
+    seen: set[int] = set()
     normalized = []
     for entry in entries:
         device_id = entry.get("device_id")
@@ -223,6 +224,13 @@ async def set_role_devices(
                 status_code=422,
                 detail={"errors": [{"key": "device_id", "message": f"Perangkat {device_id} tidak ada"}]},
             )
+        if device_id in seen:
+            # The composite primary key would turn this into a 500.
+            raise HTTPException(
+                status_code=422,
+                detail={"errors": [{"key": "device_id", "message": f"Perangkat {device_id} duplikat"}]},
+            )
+        seen.add(device_id)
         normalized.append({
             "device_id": device_id,
             "can_view": bool(entry.get("can_view")),

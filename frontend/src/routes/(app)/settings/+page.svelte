@@ -17,7 +17,7 @@
 	let loadError = $state<string | null>(null);
 	let changes = $state(0);
 
-	const canEdit = $derived(auth.can('settings.edit'));
+	const canEdit = $derived(auth.can('manage_devices'));
 
 	async function load() {
 		loading = true;

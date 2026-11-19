@@ -4,19 +4,18 @@ import { permissions } from './permissions';
 
 const catalog: PermissionCatalog = {
 	categories: [
-		{ name: 'Device', permissions: ['devices.view', 'devices.control'] },
-		{ name: 'Roles', permissions: ['roles.manage'] }
+		{ name: 'Bot', permissions: ['monitoring', 'manage_devices', 'manage_users'] }
 	],
-	all: ['devices.view', 'devices.control', 'roles.manage']
+	all: ['monitoring', 'manage_devices', 'manage_users']
 };
 
 describe('permissions', () => {
 	it('labels known keys in Indonesian', () => {
 		const grouped = permissions.groupCatalog(catalog);
-		expect(grouped[0].name).toBe('Perangkat');
+		expect(grouped[0].name).toBe('Bot');
 		expect(grouped[0].permissions[0]).toEqual({
-			key: 'devices.view',
-			label: 'Lihat perangkat'
+			key: 'monitoring',
+			label: 'Lihat status perangkat lewat bot'
 		});
 	});
 
@@ -30,12 +29,12 @@ describe('permissions', () => {
 	});
 
 	it('offers only permissions the actor already holds', () => {
-		expect(permissions.editable(catalog, ['devices.view'])).toEqual(['devices.view']);
+		expect(permissions.editable(catalog, ['monitoring'])).toEqual(['monitoring']);
 		expect(permissions.editable(catalog, [])).toEqual([]);
 	});
 
 	it('marks the protected permission keys', () => {
-		expect(permissions.isProtectedKey('roles.manage')).toBe(true);
-		expect(permissions.isProtectedKey('devices.view')).toBe(false);
+		expect(permissions.isProtectedKey('manage_users')).toBe(true);
+		expect(permissions.isProtectedKey('monitoring')).toBe(false);
 	});
 });

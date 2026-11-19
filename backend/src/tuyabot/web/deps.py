@@ -77,15 +77,22 @@ def require(*permissions: str):
     """
 
     async def dependency(principal: Principal = Depends(current_principal)) -> Principal:
+        # A dashboard session needs no permission check: there is one account.
+        # An API key is a role-scoped automation credential, so relaxing the
+        # check must not widen it — it keeps the permissions its role grants.
+        if principal.actor_kind == "api_key" and not principal.has(*permissions):
+            raise HTTPException(status_code=403, detail="Tidak berizin")
         return principal
 
     return dependency
 
 
 def require_any(*permissions: str):
-    """See `require`: authentication is the only web-side check."""
+    """See `require`: a session is authorized by authentication, a key is not."""
 
     async def dependency(principal: Principal = Depends(current_principal)) -> Principal:
+        if principal.actor_kind == "api_key" and not principal.has(*permissions):
+            raise HTTPException(status_code=403, detail="Tidak berizin")
         return principal
 
     return dependency

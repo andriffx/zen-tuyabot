@@ -8,7 +8,7 @@ const me = {
 	username: 'root',
 	actor_kind: 'web' as const,
 	role: { id: 1, slug: 'superadmin', name: 'Superadmin' },
-	permissions: ['devices.view', 'devices.control', 'users.manage'],
+	permissions: ['monitoring', 'manage_devices'],
 	csrf_token: 'tok-1'
 };
 
@@ -22,9 +22,9 @@ describe('auth.hydrate', () => {
 		vi.spyOn(authApi, 'me').mockResolvedValue(me);
 		expect(await auth.hydrate()).toBe('ready');
 		expect(auth.me?.username).toBe('root');
-		expect(auth.can('devices.control')).toBe(true);
-		expect(auth.can('roles.manage')).toBe(false);
-		expect(auth.canAny('roles.manage', 'devices.view')).toBe(true);
+		expect(auth.can('monitoring')).toBe(true);
+		expect(auth.can('manage_users')).toBe(false);
+		expect(auth.canAny('manage_users', 'monitoring')).toBe(true);
 	});
 
 	it('maps every failure to an outcome', async () => {
@@ -46,12 +46,12 @@ describe('auth.hydrate', () => {
 	it('clears stale state after a 401 so admin screens cannot linger', async () => {
 		vi.spyOn(authApi, 'me').mockResolvedValueOnce(me);
 		await auth.hydrate();
-		expect(auth.can('devices.control')).toBe(true);
+		expect(auth.can('monitoring')).toBe(true);
 
 		vi.spyOn(authApi, 'me').mockRejectedValueOnce(new ApiError(401, 'x'));
 		expect(await auth.hydrate()).toBe('login');
 		expect(auth.me).toBeNull();
-		expect(auth.can('devices.control')).toBe(false);
+		expect(auth.can('monitoring')).toBe(false);
 	});
 });
 
@@ -66,7 +66,7 @@ describe('auth.login', () => {
 
 		await auth.login('root', 'password-panjang');
 		expect(auth.me?.username).toBe('root');
-		expect(auth.can('devices.control')).toBe(true);
+		expect(auth.can('monitoring')).toBe(true);
 	});
 });
 
@@ -75,9 +75,10 @@ describe('auth.refresh', () => {
 		vi.spyOn(authApi, 'me').mockResolvedValueOnce(me);
 		await auth.hydrate();
 
-		vi.spyOn(authApi, 'me').mockResolvedValueOnce({ ...me, permissions: ['devices.view'] });
+		vi.spyOn(authApi, 'me').mockResolvedValueOnce({ ...me, permissions: ['view_logs'] });
 		await auth.refresh();
-		expect(auth.can('devices.control')).toBe(false);
+		expect(auth.can('monitoring')).toBe(false);
+		expect(auth.can('view_logs')).toBe(true);
 	});
 
 	it('does nothing when there is no session', async () => {

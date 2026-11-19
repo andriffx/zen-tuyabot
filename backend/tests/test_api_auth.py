@@ -121,7 +121,7 @@ def test_api_key_principal_works(ready_db):
     assert me["role"]["slug"] == "viewer"
     assert "monitoring" in me["permissions"]
 
-    # Web endpoints authorize by authentication; role permissions no longer
-    # restrict them. The key still resolves to its role for the audit trail.
-    assert client.get("/api/settings", headers={"X-API-Key": raw}).status_code == 200
+    # A session is authorized by authentication; an API key stays scoped to the
+    # permissions of its role (see tests/test_api_key_scope.py).
+    assert client.get("/api/settings", headers={"X-API-Key": raw}).status_code == 403
     assert client.get("/api/auth/me", headers={"X-API-Key": "tbk_salah"}).status_code == 401

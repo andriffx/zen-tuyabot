@@ -17,7 +17,7 @@ from ..deps import Principal, request_id, require
 router = APIRouter(prefix="/api/bot-messages", tags=["bot-messages"])
 
 # Sample values so a preview shows something concrete for every placeholder.
-_SAMPLES: dict[str, str] = {
+_SAMPLES: dict[str, Any] = {
     "name": "Budi",
     "role": "Operator",
     "uid": "123456789",
@@ -28,7 +28,7 @@ _SAMPLES: dict[str, str] = {
     "device": "Pompa Air",
     "message": "perangkat tidak membalas",
     "minutes": "30",
-    "power": "12.5",
+    "power": 12.5,
     "user_name": "Budi",
     "username": "budi",
     "user_id": "123456789",

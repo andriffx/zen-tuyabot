@@ -21,14 +21,14 @@ router = APIRouter(prefix="/api/backup", tags=["backup"])
 
 
 @router.get("")
-async def list_backups(principal: Principal = Depends(require("backup.view"))) -> dict[str, Any]:
+async def list_backups(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     return {"backups": backup_runs.list_all()}
 
 
 @router.post("")
 async def create_backup(
     request: Request,
-    principal: Principal = Depends(require("backup.create")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     result = backup_service.create(kind="manual")
     audit.write(
@@ -44,7 +44,7 @@ async def create_backup(
 async def download_backup(
     backup_id: int,
     request: Request,
-    principal: Principal = Depends(require("backup.restore")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> FileResponse:
     record = backup_runs.get(backup_id)
     if record is None:
@@ -70,7 +70,7 @@ async def restore_backup(
     # query parameter, so a correct multipart upload would be rejected.
     password: str = Form(default=""),
     confirm: str = Form(default=""),
-    principal: Principal = Depends(require("system.restore")),
+    principal: Principal = Depends(require("manage_devices")),
 ) -> dict[str, Any]:
     """Restore replaces the whole database: re-auth and a typed confirmation are required."""
     if principal.actor_kind != "web" or principal.actor_id is None:
@@ -107,7 +107,7 @@ async def restore_backup(
 
 
 @router.get("/status")
-async def restore_status(principal: Principal = Depends(require("backup.view"))) -> dict[str, Any]:
+async def restore_status(principal: Principal = Depends(require("manage_devices"))) -> dict[str, Any]:
     return {
         "db_path": db.path(),
         "backup_dir": str(backup_service.backups_dir()),

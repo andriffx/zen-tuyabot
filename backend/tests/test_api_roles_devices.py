@@ -70,3 +70,18 @@ def test_put_refuses_an_unknown_device(client, csrf_value, login_as, ready_db):
 
     assert response.status_code == 422
     assert role_devices.get_for_role(role_id) == []
+
+
+def test_put_refuses_a_duplicate_device(client, csrf_value, login_as, ready_db):
+    login_as("superadmin")
+    role_id = _role(ready_db)
+    (device_id,) = _devices(1)
+    entry = {"device_id": device_id, "can_view": True, "can_on": True, "can_off": True}
+
+    response = client.put(
+        f"/api/roles/{role_id}/devices",
+        json={"entries": [entry, entry]},
+        headers={"X-CSRF-Token": csrf_value},
+    )
+
+    assert response.status_code == 422

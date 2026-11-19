@@ -8,6 +8,7 @@ never stop the bot from replying.
 
 from __future__ import annotations
 
+import string
 from typing import Any
 
 from .. import db
@@ -114,12 +115,38 @@ def get(key: str) -> str:
 
 
 def render(key: str, **context: Any) -> str:
-    return get(key).format_map(_SafeDict(context))
+    """Render a template, never raising.
+
+    A stored template can be malformed — written by an older build, or by hand
+    in the database. Raising here would take down the reply that was about to be
+    sent, so the raw text is returned instead and the problem stays visible.
+    """
+    template = get(key)
+    try:
+        return template.format_map(_SafeDict(context))
+    except (ValueError, IndexError, KeyError, AttributeError):
+        return template
+
+
+def _validate(text: str) -> None:
+    """Reject what would raise or misrender at send time."""
+    if not text.strip():
+        raise ValueError("text tidak boleh kosong")
+    try:
+        parsed = list(string.Formatter().parse(text))
+    except ValueError as exc:
+        raise ValueError(f"syntax template tidak valid: {exc}") from exc
+    for _, field, _, _ in parsed:
+        # `{}` parses to an empty field name, `{0}` to a digit: both need
+        # positional arguments the caller cannot supply.
+        if field is not None and (field == "" or field.isdigit()):
+            raise ValueError(
+                "gunakan placeholder bernama seperti {name}, bukan {} atau {0}"
+            )
 
 
 def set_text(key: str, text: str) -> None:
-    if not text.strip():
-        raise ValueError("text tidak boleh kosong")
+    _validate(text)
     with db.connection(immediate=True) as cur:
         cur.execute(
             "INSERT INTO bot_messages (key, text, updated_at) "
@@ -131,8 +158,6 @@ def set_text(key: str, text: str) -> None:
 
 def placeholders(key: str) -> list[str]:
     """Field names the template can be given, as written in the seed."""
-    import string
-
     template = SEED.get(key, "")
     return sorted({name for _, name, _, _ in string.Formatter().parse(template) if name})
 

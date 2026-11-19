@@ -53,7 +53,7 @@
 	let formError = $state<string | null>(null);
 	let fieldErrors = $state<Record<string, string>>({});
 
-	const canManage = $derived(auth.can('telegram_users.manage'));
+	const canManage = $derived(auth.can('manage_users'));
 
 	// bits-ui needs the label list up front; otherwise a row's trigger renders the
 	// raw role id until its menu has been opened once.
@@ -71,7 +71,7 @@
 			users = userList.telegram_users;
 			roles = roleList.roles;
 			const editable = new Set(permissions.editable(catalog, [...(auth.me?.permissions ?? [])]));
-			allowedRoleIds = roles.filter((role) => role.permissions.every((key) => editable.has(key) || !auth.can('roles.manage'))).map((role) => role.id);
+			allowedRoleIds = roles.filter((role) => role.permissions.every((key) => editable.has(key) || !auth.can('manage_users'))).map((role) => role.id);
 			roleId = allowedRoleIds[0] ?? roles[0]?.id ?? null;
 		} catch (failure) {
 			error = failure instanceof ApiError ? failure.detail : 'Gagal memuat user Telegram.';
