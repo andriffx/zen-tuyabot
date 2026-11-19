@@ -104,3 +104,66 @@ def test_split_statements_keeps_multiline_create_table_together():
     assert len(statements) == 2
     assert statements[0].startswith("CREATE TABLE a")
     assert statements[0].endswith(");")
+
+
+def test_a_migration_that_shipped_in_several_forms_still_starts(tmp_path):
+    """0006 was edited six times before its content settled.
+
+    A database that applied an earlier form recorded a checksum that no longer
+    matches the file. Refusing to start there locks a live installation out
+    because of a mistake in how the migration was maintained, not because its
+    data is wrong.
+    """
+    recorded = "ddcae867c0069a9902ba839b01da1aad449ed2af1d735fd9a87ac68a6d7a767b"
+    assert migrate._matches_applied(
+        6, "0006_bot_messages_seed", migrate.MIGRATIONS_DIR / "0006_bot_messages_seed.sql", recorded
+    )
+
+
+def test_a_genuinely_edited_migration_is_still_refused(tmp_path):
+    """Tolerance is not a blanket: an unknown checksum must still fail."""
+    assert not migrate._matches_applied(
+        6, "0006_bot_messages_seed", migrate.MIGRATIONS_DIR / "0006_bot_messages_seed.sql", "0" * 64
+    )
+
+
+def test_a_database_that_applied_an_old_0006_starts_and_gets_the_new_rows(tmp_path):
+    """The exact production failure: an old 0006 checksum on record.
+
+    The server applied an earlier form of 0006 and refused to start after the
+    update. The old checksum must be accepted, and 0007 must still add the rows
+    that were added later.
+    """
+
+    import sqlite3
+
+    target = tmp_path / "old.db"
+    # Build the real schema first, then rewrite 0006's checksum to an old value.
+    conn = sqlite3.connect(target)
+    try:
+        for name in ("0001_init.sql", "0002_seed.sql", "0003_settings_seed.sql",
+                     "0004_setup_state.sql", "0005_telegram_roles.sql"):
+            conn.executescript((migrate.MIGRATIONS_DIR / name).read_text(encoding="utf-8"))
+        conn.execute(
+            "INSERT INTO schema_migrations (version, name, checksum) VALUES (6, ?, ?)",
+            (
+                "0006_bot_messages_seed",
+                "ddcae867c0069a9902ba839b01da1aad449ed2af1d735fd9a87ac68a6d7a767b",
+            ),
+        )
+        for version, name, path in migrate.available():
+            if version < 6:
+                conn.execute(
+                    "INSERT OR IGNORE INTO schema_migrations (version, name, checksum) VALUES (?, ?, ?)",
+                    (version, name, migrate._checksum(path)),
+                )
+        conn.commit()
+    finally:
+        conn.close()
+    migrate.db.configure(str(target))
+
+    # Must not raise.
+    assert migrate.apply() >= 7
+    with migrate.db.connection() as cur:
+        cur.execute("SELECT COUNT(*) AS n FROM bot_messages")
+        assert cur.fetchone()["n"] > 0
