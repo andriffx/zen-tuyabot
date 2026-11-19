@@ -262,3 +262,24 @@ def test_env_examples_stay_tracked():
             capture_output=True,
         )
         assert result.returncode != 0, f"{relative} is ignored but should be tracked"
+
+
+def test_the_entrypoint_is_tracked_as_executable():
+    """A Linux container runs it; without the exec bit it is not runnable.
+
+    The Dockerfile also chmods it, so the container survives, but a repository
+    that stores a script as 0644 breaks any other consumer (a bare-metal install,
+    a future image that does not chmod).
+    """
+    import subprocess
+
+    # Windows cannot hold the POSIX exec bit on disk, so git's index is what
+    # matters: that is what a Linux checkout receives.
+    listed = subprocess.run(
+        ["git", "ls-files", "-s", "backend/entrypoint.sh"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout
+    assert listed.startswith("100755"), f"git menyimpannya sebagai {listed.split()[0]}"
